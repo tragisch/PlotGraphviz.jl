@@ -59,7 +59,7 @@ function _to_dot(mat::AbstractSimpleWeightedGraph, stream::IO, attrs::AttributeD
         for kid in childs
             # if n_vertices > kid # seems to be wrong / to think about that.
             if color && (colors[node] > 0) && (colors[kid] > 0)
-                edge_node = ",color=$(path[node])]"
+                edge_node = ",color=$(colors[node])]"
             elseif !isempty(path) && !Base.isnothing(findfirst(isequal(node), path)) && !Base.isnothing(findfirst(isequal(kid), path)) && (kid != path[1])
                 edge_node = ",color=red]"
             else

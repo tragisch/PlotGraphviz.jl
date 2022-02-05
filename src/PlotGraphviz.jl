@@ -1,7 +1,10 @@
 module PlotGraphviz
 
+using Graphs
 using SimpleWeightedGraphs
+using Tokenize
 using ShowGraphviz
+
 
 # Write your package code here
 

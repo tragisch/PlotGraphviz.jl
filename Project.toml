@@ -9,6 +9,7 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 ShowGraphviz = "14e20f5a-e304-4f94-b7d9-bca841234ddf"
 SimpleWeightedGraphs = "47aef6b3-ad0c-573a-a1e2-d07658019622"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Tokenize = "0796e94c-ce3b-5d07-9a54-7f471281c624"
 
 [compat]
 julia = "1"
