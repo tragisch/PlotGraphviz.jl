@@ -14,15 +14,15 @@ function _parse_attributes(attrs::AttributeDict, gne::String)
     gne_attrs = _get_GNE_attributes(attrs, gne)
     str_attr::String = ""
 
-    if gne == "N" # node attributes
+    if contains(gne, "N") # node attributes
         str_attr = string("[", join(map(a -> _to_dot(a[1], a[2][2]), collect(gne_attrs)), ","))
-    elseif gne == "G" # graph attributes
+    elseif contains(gne, "G") # graph attributes
         for key in keys(attrs)
             if contains(attrs[key][1], "G")
                 str_attr = str_attr * string(_to_dot(key, attrs[key][2]), ";\n ")
             end
         end
-    elseif gne == "E" # edge attributes
+    elseif contains(gne, "E") # edge attributes
         str_attr = string("[", join(map(a -> _to_dot(a[1], a[2][2]), collect(gne_attrs)), ","))
     end
     return str_attr
@@ -60,21 +60,25 @@ function _to_dot_node_attributes(g::AbstractSimpleWeightedGraph, stream::IO, att
 
     (!isempty(path)) ? show_path = true : show_path = false
     (!_is_all_zero(colors)) ? show_color = true : show_color = false
-    (show_color == true) ? write(stream, " node [$color_scheme]\n") : nothing
+    (show_color == true) ? write(stream, " node [$color_scheme]\n\n") : nothing
 
-    if show_path && show_color
-        show_color = false
-    end
-
+    # iter:
     for node = 1:nv(g)
+
+        # get node specific attributes:
+        n_attrs = _parse_attributes(attrs, "N$node")
+
+
         if show_color && (colors[node] > 0)
-            color_node = " [color=$(colors[node])]"
-        elseif show_path && !Base.isnothing(findfirst(isequal(node), path))
-            color_node = " [color=red]"
-        else
-            color_node = ""
+            (length(n_attrs) > 1) ? n_attrs = n_attrs * "," : nothing
+            n_attrs = n_attrs * "color=$(colors[node])"
         end
-        write(stream, " $node $color_node;\n")
+
+        if show_path && !Base.isnothing(findfirst(isequal(node), path))
+            (length(n_attrs) > 1) ? n_attrs = n_attrs * "," : nothing
+            n_attrs = n_attrs * "fillcolor=red"
+        end
+        write(stream, " $node $n_attrs];\n")
     end
 end
 
@@ -93,25 +97,29 @@ function _to_dot_edge_attributes(g::AbstractSimpleWeightedGraph, stream::IO, att
 
     for node = 1:nv(g)
         childs = Graphs.inneighbors(g, node)
-        # childs = WeightedNetwork.children(mat, node)
 
         for kid in childs
-            # if n_vertices > kid # seems to be wrong / to think about that.
+            # get edge specific attributes:
+            par = "-"
+            e_attrs = _parse_attributes(attrs, "E$node$par$kid")
+
             if show_color && (colors[node] > 0) && (colors[kid] > 0)
-                edge_node = "color=$(colors[node])"
-            elseif show_path && !Base.isnothing(findfirst(isequal(node), path)) && !Base.isnothing(findfirst(isequal(kid), path)) && (kid != path[1])
-                edge_node = "color=red"
-            else
-                edge_node = ""
+                (length(e_attrs) > 1) ? e_attrs = e_attrs * "," : nothing
+                e_attrs = e_attrs * "color=$(colors[node])"
+            end
+
+            if show_path && !Base.isnothing(findfirst(isequal(node), path)) && !Base.isnothing(findfirst(isequal(kid), path)) && (kid != path[1])
+                (length(e_attrs) > 1) ? e_attrs = e_attrs * "," : nothing
+                e_attrs = e_attrs * "color=red"
             end
 
             if edge_label
                 w = g.weights[node, kid]
-                write(stream, " $node $(_edge_op(g)) $kid [xlabel=$w $edge_node];\n")
+                write(stream, " $node $(_edge_op(g)) $kid $e_attrs, xlabel=$w];\n")
             else
-                write(stream, " $node $(_edge_op(g)) $kid [$edge_node];\n")
+                write(stream, " $node $(_edge_op(g)) $kid $e_attrs];\n")
             end
-            # end
+
         end
 
     end
@@ -130,7 +138,6 @@ function _to_dot(mat::AbstractSimpleWeightedGraph, stream::IO, attrs::AttributeD
         end
     end
 
-
     # write Header an Graph Attributes:
     _to_dot_graph_attributes(mat, stream, attrs)
 
@@ -144,6 +151,9 @@ function _to_dot(mat::AbstractSimpleWeightedGraph, stream::IO, attrs::AttributeD
     write(stream, "}\n")
     return stream
 end
+
+########### helper
+
 
 # helper function to reduze colors 
 function _reduce_colors!(components)
@@ -175,17 +185,20 @@ function _reduce_colors!(components)
     return components = co
 end
 
-
-########### helper
-
 # internal function to get `G`raph, `E`dge and `N`ode relateted attributes:
 function _get_GNE_attributes(attrs::AttributeDict, gne::String)
     if !isempty(attrs)
         GNE_attrs = Dict()
         for key in keys(attrs)
-            if contains(attrs[key][1], gne)
+            # if (single == true)
+            #     if contains(attrs[key][1], gne)
+            #         GNE_attrs[key] = attrs[key]
+            #     end
+            # else # to get node or edge specific attributes.
+            if attrs[key][1] == gne
                 GNE_attrs[key] = attrs[key]
             end
+            #end
         end
         return GNE_attrs
     else

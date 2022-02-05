@@ -11,7 +11,7 @@ using ShowGraphviz
 
 export
     # visualization mit Graphviz (for small graphs or use file_export:)
-    plot_graphviz, write_dot_file, read_dot_file, AttributeDict, get_attributes
+    plot_graphviz, write_dot_file, read_dot_file, AttributeDict, get_attributes, _to_dot, _parse_attributes, _get_GNE_attributes
 
 
 include("./dots/attributes.jl")
