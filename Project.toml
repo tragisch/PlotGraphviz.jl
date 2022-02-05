@@ -1,0 +1,13 @@
+name = "PlotGraphviz"
+uuid = "78a92bc3-407c-4e2f-aae5-75bb47a6fe36"
+authors = ["tragisch <uwe@roettgermann.de> and contributors"]
+version = "0.1.0"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+julia = "1"
+
+[targets]
+test = ["Test"]
