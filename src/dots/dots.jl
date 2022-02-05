@@ -117,11 +117,14 @@ Render graph `g` in iJulia using `Graphviz` engines.
 - `g::AbstractSimpleWeightedGraph`: a graph representation to export 
 - `node_label::Bool`: if true all nodes are numberd fom 1:N (default = true)
 - `edge_label::Bool`: if true all edges are labeled with their weights (default = false)
-- (optional) `path = zeros(Int, nv(mat)`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
-- (optional) `scale = 1.0`: Scale your plot
-- (optional) `landscape = false`: render landscape
+- (optional) `path = []`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
+- (optional) `colors = zeros(Int, nv(mat))`: Color nodes using Brewer Color Scheme (max 9 colors).
+- (optional) `scale = 3.0`: Scale your plot
+- (optional) `landscape = false`: render landscape, but node-labes are not rotated as well.
 """
-function plot_graphviz(g::AbstractSimpleWeightedGraph; node_label::Bool = true, edge_label::Bool = false,
+function plot_graphviz(g::AbstractSimpleWeightedGraph;
+    node_label::Bool = true,
+    edge_label::Bool = false,
     colors = zeros(Int, SimpleWeightedGraphs.nv(g)),
     path = [],
     scale = 3.0,
@@ -146,12 +149,19 @@ Render graph `g` in **iJulia** using `Graphviz` engines.
 #### Arguments
 - `g::AbstractSimpleWeightedGraph`: a graph representation to export 
 - `attributes::AttributeDict`: Render with own set of plotting attributes (see http://www.graphviz.org/ for details)
-- (optional) `path = zeros(Int, nv(mat))`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
+- (optional) `path = []`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
+- (optional) `colors = zeros(Int, nv(mat))`: Color nodes using Brewer Color Scheme (max 9 colors).
 """
-function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::AttributeDict; path = [], colors = zeros(Int, nv(g)))
+function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::AttributeDict;
+    path = [],
+    colors = zeros(Int, nv(g))
+)
+
     gv_dot = _to_dot(g; attributes = attributes, path = path, colors = colors)
     plot_graphviz(gv_dot)
 end
+
+
 
 function plot_graphviz(str::AbstractString)
     ShowGraphviz.CONFIG.dot_option = `-q` # do not warn in iJulia!
@@ -172,7 +182,7 @@ Export graph `g` to DOT-Format and store it in file `file`.
 - (optional) `path = zeros(Int, nv(mat))`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
 """
 function write_dot_file(graph::AbstractSimpleWeightedGraph, filename::AbstractString;
-    attributes::AttributeDict = get_attributes(graph), path = [], colors = zeros(Int, nv(mat)))
+    attributes::AttributeDict = get_attributes(graph), path = [], colors = zeros(Int, nv(graph)))
     open(filename, "w") do f
         _to_dot(graph, f, attributes; path = path, colors = colors)
     end

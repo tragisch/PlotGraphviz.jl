@@ -1,0 +1,42 @@
+digraph graphname {
+ overlap=scale;
+ size=7.0;
+ layout=dot;
+ center=1;
+ concentrate=true;
+ 
+ 1 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 2 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 3 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 4 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 5 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 6 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 7 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 8 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 9 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 10 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 11 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 12 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 13 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 14 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 15 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 16 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 17 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 18 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 19 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 20 [fixedsize=true,shape=component,color=Red,height=0.25,width=0.25 ];
+ 4 -> 11 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 5 -> 15 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 6 -> 18 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 7 -> 2 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 8 -> 16 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 10 -> 6 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 11 -> 2 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 11 -> 8 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 12 -> 10 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 15 -> 12 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 17 -> 10 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 17 -> 18 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 20 -> 4 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+ 20 -> 6 [fontsize=1.0,arrowtype=normal,arrowsize=0.5 ];
+}
