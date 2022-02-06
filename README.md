@@ -2,7 +2,6 @@
 
 [![Coverage](https://codecov.io/gh/tragisch/PlotGraphviz.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/tragisch/PlotGraphviz.jl)
 
-
 The goal of `PlotGraphviz.jl` is to unleash the power of  `Graphviz` in your IJulia environment. It is using [`ShowGraphviz.jl`](https://github.com/tkf/ShowGraphviz.jl), which derive various show methods from text/vnd.graphviz and PlotGraphviz.jl present a simple interface for all features of Graphviz (https://graphviz.org).
 
 `PlotGraphviz.jl` takes as input graphs from [`SimpleWeightedGraphs.jl`](https://github.com/JuliaGraphs/SimpleWeightedGraphs.jl)
@@ -20,7 +19,6 @@ using Revise
 using PlotGraphviz
 ```
 
-
 Generate some Graphs by importing `Graphs.jl` and `SimpleWeightedGraphs.jl`:
 
 
@@ -30,7 +28,8 @@ using Graphs, SimpleWeightedGraphs
 
 
 ```julia
-g = SimpleWeightedGraph(3)  # or use `SimpleWeightedDiGraph` for directed graphs
+# or use `SimpleWeightedDiGraph` for directed graphs
+g = SimpleWeightedGraph(3)  
 SimpleWeightedGraphs.add_edge!(g, 1, 2, 0.5)
 SimpleWeightedGraphs.add_edge!(g, 2, 3, 0.8)
 SimpleWeightedGraphs.add_edge!(g, 1, 3, 2.0);
@@ -43,9 +42,14 @@ SimpleWeightedGraphs.add_edge!(g, 1, 3, 2.0);
 plot_graphviz(g)
 ```
 
+
+
+
     
 ![svg](docs/README_files/README_8_0.svg)
     
+
+
 
 Or use generators from `Graphs.jl`:
 
@@ -109,7 +113,7 @@ mk = rand_directed_network(20,0.04)
 
 
 
-    {20, 14} directed simple Int64 graph with Float64 weights
+    {20, 19} directed simple Int64 graph with Float64 weights
 
 
 
@@ -151,22 +155,23 @@ attrs = get_attributes(mk)
 
 
 
-    Dict{Symbol, Vector{String}} with 15 entries:
-      :width       => ["N", "0.25"]
-      :largenet    => ["P", "200"]
-      :fixedsize   => ["N", "true"]
-      :shape       => ["N", "circle"]
-      :overlap     => ["G", "scale"]
-      :height      => ["N", "0.25"]
-      :size        => ["G", "7.0"]
-      :layout      => ["G", "dot"]
-      :center      => ["G", "1"]
-      :arrowsize   => ["E", "0.5"]
-      :color       => ["N", "Turquoise"]
-      :weights     => ["P", "false"]
-      :fontsize    => ["E", "1.0"]
-      :arrowtype   => ["E", "normal"]
-      :concentrate => ["G", "true"]
+    Dict{Tuple{String, String}, String} with 16 entries:
+      ("overlap", "G")     => "scale"
+      ("layout", "G")      => "dot"
+      ("height", "N")      => "0.25"
+      ("weights", "P")     => "false"
+      ("size", "G")        => "7.0"
+      ("width", "N")       => "0.25"
+      ("fixedsize", "N")   => "true"
+      ("largenet", "P")    => "200"
+      ("shape", "N")       => "circle"
+      ("concentrate", "G") => "true"
+      ("arrowtype", "E")   => "normal"
+      ("color", "N")       => "Turquoise"
+      ("arrowsize", "E")   => "0.5"
+      ("fontsize", "N")    => "7.0"
+      ("center", "G")      => "1"
+      ("fontsize", "E")    => "1.0"
 
 
 
@@ -176,8 +181,13 @@ For example, to change node color to red:
 
 
 ```julia
-attrs[:color] = ["N", "Red"]; # red node-color
-attrs[:shape] = ["N", "component"]; # change node shape to component
+attrs[("color", "N")] = "Red"; # red node-color
+attrs[("shape", "N")] = "component"; # change node shape to component
+attrs[("color", "E3-6")] = "Red"  # set edge fom node 3 to 6 to red.
+attrs[("style", "E3-6")] = "dashed" # and dash it
+attrs[("shape", "N8")] = "egg";
+attrs[("style", "N8")] = "filled";
+attrs[("style", "N11")] = "rounded";
 ```
 
 
@@ -212,7 +222,7 @@ g = read_dot_file("../test/data/large_dag.dot")
 
 
 ```julia
-plot_graphviz(g; scale=7)
+plot_graphviz(g; scale = 7.)
 ```
 
 
@@ -261,14 +271,11 @@ L = Graphs.connected_components(mk)
 
 
 
-    7-element Vector{Vector{Int64}}:
-     [1]
-     [2, 4, 5, 6, 7, 8, 10, 11, 12, 15, 16, 17, 18, 20]
-     [3]
-     [9]
-     [13]
+    4-element Vector{Vector{Int64}}:
+     [1, 3, 4, 6, 7, 8, 9, 10, 11, 13, 15, 16, 17, 18, 19, 20]
+     [2, 5]
+     [12]
      [14]
-     [19]
 
 
 

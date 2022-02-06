@@ -120,7 +120,7 @@ function _to_dot_edge_attributes(g::AbstractSimpleWeightedGraph, stream::IO, att
             if edge_label
                 w = g.weights[node, kid]
                 (!isempty(e_attrs)) ? e_attrs = e_attrs * "]" : e_attrs = "["
-                write(stream, " $node $(_edge_op(g)) $kid $e_attrs, xlabel=$w];\n")
+                write(stream, " $node $(_edge_op(g)) $kid $e_attrs xlabel=$w];\n")
             else
                 (!isempty(e_attrs)) ? e_attrs = e_attrs * "]" : nothing
                 write(stream, " $node $(_edge_op(g)) $kid $e_attrs;\n")

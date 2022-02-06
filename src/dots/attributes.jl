@@ -27,13 +27,13 @@ function get_attributes(graph::AbstractSimpleWeightedGraph; node_label::Bool = t
         ("overlap", "G") => "scale",
         ("color", "N") => "Turquoise",
         ("concentrate", "G") => "true",
-        ("fontsize", "N") => (node_label) ? ((n < 100) ? "7.0" : "5") : "1.0",
+        ("fontsize", "N") => (node_label) ? ((n < 100) ? "7.0" : "5.0") : "1.0",
         ("width", "N") => (node_label) ? "0.25" : "0.20",
         ("height", "N") => (node_label) ? "0.25" : "0.20",
         ("fixedsize", "N") => "true",
         ("fontsize", "E") => (edge_label) ? "8.0" : "1.0",
         ("layout", "G") => (directed) ? "dot" : "neato", # dot or neato
-        ("size", "G") => (n < 20) ? "3.0" : ((n < 100) ? "7.0" : "10"),
+        ("size", "G") => (n < 20) ? "3.0" : ((n < 100) ? "7.0" : "10.0"),
         ("shape", "N") => (node_label) ? "circle" : "point"
     )
 
@@ -48,7 +48,7 @@ end
 function _mod_attr_large_network!(attrs::AttributeDict)
     attrs[("shape", "N")] = "point"
     attrs[("color", "N")] = "black"
-    attrs[("fontsize", "G")] = "1,1"
+    attrs[("fontsize", "G")] = "1"
     attrs[("concetrate", "G")] = "true"
     attrs[("layout", "G")] = "sfdp"
     attrs[("weights", "P")] = "false"
