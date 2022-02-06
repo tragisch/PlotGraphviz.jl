@@ -14,22 +14,23 @@ function _parse_attributes(attrs::AttributeDict, gne::String)
     gne_attrs = _get_GNE_attributes(attrs, gne)
     str_attr::String = ""
 
-    if contains(gne, "N") # node attributes
-        str_attr = string("[", join(map(a -> _to_dot(a[1], a[2][2]), collect(gne_attrs)), ","))
-    elseif contains(gne, "G") # graph attributes
-        for key in keys(attrs)
-            if contains(attrs[key][1], "G")
-                str_attr = str_attr * string(_to_dot(key, attrs[key][2]), ";\n ")
+    if has_attribute(gne_attrs, "N"; idx = 2) # node attributes
+        str_attr = string("[", join(map(a -> _to_dot(a[1][1], a[2]), collect(gne_attrs)), ","))
+    elseif has_attribute(gne_attrs, "G"; idx = 2) # graph attributes
+        for key in keys(gne_attrs)
+            if key[2] == "G"
+                str_attr = str_attr * string(_to_dot(key[1], gne_attrs[key]), ";\n ")
             end
         end
-    elseif contains(gne, "E") # edge attributes
-        str_attr = string("[", join(map(a -> _to_dot(a[1], a[2][2]), collect(gne_attrs)), ","))
+    elseif has_attribute(gne_attrs, "E"; idx = 2) # edge attributes
+        str_attr = string("[", join(map(a -> _to_dot(a[1][1], a[2]), collect(gne_attrs)), ","))
     end
     return str_attr
 end
 
 # internal functions to identify strings:
 _to_dot(sym::Symbol, value::String) = "$sym=$value"
+_to_dot(sym::String, value::String) = "$sym=$value"
 _graph_type_string(graph::AbstractSimpleWeightedGraph) = Graphs.is_directed(graph) ? "digraph" : "graph"
 _edge_op(graph::AbstractSimpleWeightedGraph) = Graphs.is_directed(graph) ? "->" : "--"
 
@@ -70,23 +71,26 @@ function _to_dot_node_attributes(g::AbstractSimpleWeightedGraph, stream::IO, att
 
 
         if show_color && (colors[node] > 0)
-            (length(n_attrs) > 1) ? n_attrs = n_attrs * "," : nothing
+            (!isempty(n_attrs)) ? n_attrs = n_attrs * "," : n_attrs = "["
             n_attrs = n_attrs * "color=$(colors[node])"
         end
 
         if show_path && !Base.isnothing(findfirst(isequal(node), path))
-            (length(n_attrs) > 1) ? n_attrs = n_attrs * "," : nothing
+            (!isempty(n_attrs)) ? n_attrs = n_attrs * "," : n_attrs = "["
             n_attrs = n_attrs * "fillcolor=red"
         end
-        write(stream, " $node $n_attrs];\n")
+
+        (!isempty(n_attrs)) ? n_attrs = n_attrs * "]" : nothing
+
+        write(stream, " $node $n_attrs;\n")
     end
 end
 
 function _to_dot_edge_attributes(g::AbstractSimpleWeightedGraph, stream::IO, attrs::AttributeDict, path, colors)
 
     # check if `weighted` and labeled:
-    if haskey(attrs, :weights)
-        attr_ = attrs[:weights][2]
+    if has_attribute(attrs, "weights")
+        attr_ = attrs[("weights", "P")]
         (attr_ == "true") ? edge_label = true : edge_label = false
     end
 
@@ -104,20 +108,22 @@ function _to_dot_edge_attributes(g::AbstractSimpleWeightedGraph, stream::IO, att
             e_attrs = _parse_attributes(attrs, "E$node$par$kid")
 
             if show_color && (colors[node] > 0) && (colors[kid] > 0)
-                (length(e_attrs) > 1) ? e_attrs = e_attrs * "," : nothing
+                (!isempty(e_attrs)) ? e_attrs = e_attrs * "," : e_attrs = "["
                 e_attrs = e_attrs * "color=$(colors[node])"
             end
 
             if show_path && !Base.isnothing(findfirst(isequal(node), path)) && !Base.isnothing(findfirst(isequal(kid), path)) && (kid != path[1])
-                (length(e_attrs) > 1) ? e_attrs = e_attrs * "," : nothing
+                (!isempty(e_attrs)) ? e_attrs = e_attrs * "," : e_attrs = "["
                 e_attrs = e_attrs * "color=red"
             end
 
             if edge_label
                 w = g.weights[node, kid]
+                (!isempty(e_attrs)) ? e_attrs = e_attrs * "]" : e_attrs = "["
                 write(stream, " $node $(_edge_op(g)) $kid $e_attrs, xlabel=$w];\n")
             else
-                write(stream, " $node $(_edge_op(g)) $kid $e_attrs];\n")
+                (!isempty(e_attrs)) ? e_attrs = e_attrs * "]" : nothing
+                write(stream, " $node $(_edge_op(g)) $kid $e_attrs;\n")
             end
 
         end
@@ -188,23 +194,16 @@ end
 # internal function to get `G`raph, `E`dge and `N`ode relateted attributes:
 function _get_GNE_attributes(attrs::AttributeDict, gne::String)
     if !isempty(attrs)
-        GNE_attrs = Dict()
+        GNE_attrs = AttributeDict()
         for key in keys(attrs)
-            # if (single == true)
-            #     if contains(attrs[key][1], gne)
-            #         GNE_attrs[key] = attrs[key]
-            #     end
-            # else # to get node or edge specific attributes.
-            if attrs[key][1] == gne
+            if key[2] == gne
                 GNE_attrs[key] = attrs[key]
             end
-            #end
         end
         return GNE_attrs
     else
         return ""
     end
-
 end
 
 # internal function to get the dot representation of a graph as a string.
@@ -212,4 +211,17 @@ function _to_dot(graph::AbstractSimpleWeightedGraph, attributes::AttributeDict =
     str = IOBuffer()
     _to_dot(graph, str, attributes, path, colors)
     String(take!(str)) #takebuf_string(str)
+end
+
+# helper function to identify all_zero Array
+_is_all_zero(arr) = length(arr) == 0 || all(==(0), arr)
+
+
+function has_attribute(dict::AttributeDict, symb::String; idx = 1)
+    for key in dict
+        if contains(key[1][idx], symb) # key[1][idx] == symb
+            return true
+        end
+    end
+    return false
 end

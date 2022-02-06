@@ -25,9 +25,9 @@ function plot_graphviz(g::AbstractSimpleWeightedGraph;
     landscape = false)
 
     attributes = get_attributes(g; node_label = node_label, edge_label = edge_label)
-    attributes[:size] = ["G", string(scale)]
-    (edge_label) ? attributes[:forcelabels] = ["G", "true"] : nothing
-    (landscape) ? attributes[:orientation] = ["G", "LR"] : nothing
+    attributes[("size", "G")] = string(scale)
+    (edge_label) ? attributes[("forcelabels", "G")] = "true" : nothing
+    (landscape) ? attributes[("orientation", "G")] = "LR" : nothing
 
     gv_dot = _to_dot(g, attributes, path, colors)
     plot_graphviz(gv_dot)
