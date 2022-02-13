@@ -1,6 +1,6 @@
 digraph G {
 center = 1;
-size="10,10";
+size="10";
 1;
 2;
 3;

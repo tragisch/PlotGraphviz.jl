@@ -217,11 +217,3 @@ end
 _is_all_zero(arr) = length(arr) == 0 || all(==(0), arr)
 
 
-function has_attribute(dict::AttributeDict, symb::String; idx = 1)
-    for key in dict
-        if contains(key[1][idx], symb) # key[1][idx] == symb
-            return true
-        end
-    end
-    return false
-end

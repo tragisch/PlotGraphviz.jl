@@ -1,3 +1,6 @@
+
+
+
 #typealias
 const AttributeDict = Dict{Tuple{String,String},String}
 
@@ -54,5 +57,16 @@ function _mod_attr_large_network!(attrs::AttributeDict)
     attrs[("weights", "P")] = "false"
     return attrs
 end
+
+# internal function to return bool if key = symb or "GEN"=node, edge or Graph identifier.
+function has_attribute(dict::AttributeDict, symb::String; idx = 1)
+    for key in dict
+        if contains(key[1][idx], symb) # key[1][idx] == symb
+            return true
+        end
+    end
+    return false
+end
+
 
 
