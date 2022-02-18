@@ -150,6 +150,8 @@ function _read_edge_line!(attrs, tokens)
             else
                 nodes[2] = parse(Int64, token.val)
             end
+        elseif (token.kind == Tokenize.Tokens.IDENTIFIER) && (options == false)    
+            
         elseif token.kind == Tokenize.Tokens.LSQUARE
             options = true
         elseif ((token.kind == Tokenize.Tokens.IDENTIFIER)

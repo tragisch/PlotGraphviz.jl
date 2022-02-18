@@ -51,6 +51,9 @@ function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::AttributeDict
     colors = zeros(Int, nv(g))
 )
 
+    if haskey(attributes, ("weights", "P"))
+        (attributes[("weights", "P")] == "true") ? attributes[("forcelabels", "G")] = "true" : nothing
+    end
     gv_dot = _to_dot(g, attributes, path, colors)
     plot_graphviz(gv_dot)
 end
