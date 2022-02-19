@@ -41,16 +41,23 @@ function _to_dot_graph_attributes(g::AbstractSimpleWeightedGraph, stream::IO, at
     # write beginning: graph or digraph:
     graph_type_string = Graphs.is_directed(g) ? "digraph" : "graph"
     write(stream, "$graph_type_string {\n")
+    attrs[("type", "P")] = graph_type_string
 
     # write general attributes, belongs to all elements:
     G = "G"
     write(stream, " $(_parse_attributes(attrs, G))\n")
 
     N = "N"
-    write(stream, " node $(_parse_attributes(attrs, N))];\n")
+    str_N = _parse_attributes(attrs, N)
+    if !isempty(strip(str_N))
+        write(stream, " node $str_N];\n")
+    end
 
     E = "E"
-    write(stream, " edge $(_parse_attributes(attrs, E))];\n")
+    str_E = _parse_attributes(attrs, E)
+    if !(isempty(strip(str_E)))
+        write(stream, " edge $str_E];\n")
+    end
 end
 
 
@@ -80,9 +87,9 @@ function _to_dot_node_attributes(g::AbstractSimpleWeightedGraph, stream::IO, att
             n_attrs = n_attrs * "fillcolor=red"
         end
 
-        (!isempty(n_attrs)) ? n_attrs = n_attrs * "]" : nothing
+        (!isempty(n_attrs)) ? n_attrs = n_attrs * "]" : n_attrs = n_attrs * ";"
 
-        write(stream, " $node $n_attrs;\n")
+        write(stream, "$node$n_attrs\n")
     end
 end
 
@@ -107,23 +114,26 @@ function _to_dot_edge_attributes(g::AbstractSimpleWeightedGraph, stream::IO, att
             par = "-"
             e_attrs = _parse_attributes(attrs, "E$node$par$kid")
 
+            # automatic color if components color
             if show_color && (colors[node] > 0) && (colors[kid] > 0)
                 (!isempty(e_attrs)) ? e_attrs = e_attrs * "," : e_attrs = "["
                 e_attrs = e_attrs * "color=$(colors[node])"
             end
 
+            # show path in "red" for i.e. shortest path:
             if show_path && !Base.isnothing(findfirst(isequal(node), path)) && !Base.isnothing(findfirst(isequal(kid), path)) && (kid != path[1])
                 (!isempty(e_attrs)) ? e_attrs = e_attrs * "," : e_attrs = "["
                 e_attrs = e_attrs * "color=red"
             end
 
+            # edge labels:
             if edge_label
                 w = g.weights[node, kid]
-                (!isempty(e_attrs)) ? e_attrs = e_attrs * "]" : e_attrs = "["
-                write(stream, " $node $(_edge_op(g)) $kid $e_attrs xlabel=$w];\n")
+                (!isempty(e_attrs)) ? e_attrs = e_attrs * "," : e_attrs = "["   # e_attrs = e_attrs * "]"
+                write(stream, "$node$(_edge_op(g))$kid $e_attrs xlabel=$w];\n")
             else
                 (!isempty(e_attrs)) ? e_attrs = e_attrs * "]" : nothing
-                write(stream, " $node $(_edge_op(g)) $kid $e_attrs;\n")
+                write(stream, "$node$(_edge_op(g))$kid $e_attrs;\n")
             end
 
         end
@@ -132,7 +142,6 @@ function _to_dot_edge_attributes(g::AbstractSimpleWeightedGraph, stream::IO, att
 
 
 end
-
 
 # internal function DOT-Language representation:
 function _to_dot(mat::AbstractSimpleWeightedGraph, stream::IO, attrs::AttributeDict, path, colors)
@@ -157,9 +166,6 @@ function _to_dot(mat::AbstractSimpleWeightedGraph, stream::IO, attrs::AttributeD
     write(stream, "}\n")
     return stream
 end
-
-########### helper
-
 
 # helper function to reduze colors 
 function _reduce_colors!(components)
@@ -217,11 +223,3 @@ end
 _is_all_zero(arr) = length(arr) == 0 || all(==(0), arr)
 
 
-function has_attribute(dict::AttributeDict, symb::String; idx = 1)
-    for key in dict
-        if contains(key[1][idx], symb) # key[1][idx] == symb
-            return true
-        end
-    end
-    return false
-end

@@ -45,12 +45,18 @@ Render graph `g` in **iJulia** using `Graphviz` engines.
 - `attributes::AttributeDict`: Render with own set of plotting attributes (see http://www.graphviz.org/ for details)
 - (optional) `path = []`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
 - (optional) `colors = zeros(Int, nv(mat))`: Color nodes using Brewer Color Scheme (max 9 colors).
+- (optional) `scale = 3.0`: Scale your plot
 """
 function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::AttributeDict;
     path = [],
-    colors = zeros(Int, nv(g))
+    colors = zeros(Int, nv(g)),
+    scale = 3.0
 )
 
+    if haskey(attributes, ("weights", "P"))
+        (attributes[("weights", "P")] == "true") ? attributes[("forcelabels", "G")] = "true" : nothing
+    end
+    attributes[("size", "G")] = string(scale)
     gv_dot = _to_dot(g, attributes, path, colors)
     plot_graphviz(gv_dot)
 end
