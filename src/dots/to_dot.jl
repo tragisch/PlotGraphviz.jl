@@ -41,16 +41,23 @@ function _to_dot_graph_attributes(g::AbstractSimpleWeightedGraph, stream::IO, at
     # write beginning: graph or digraph:
     graph_type_string = Graphs.is_directed(g) ? "digraph" : "graph"
     write(stream, "$graph_type_string {\n")
+    attrs[("type", "P")] = graph_type_string
 
     # write general attributes, belongs to all elements:
     G = "G"
     write(stream, " $(_parse_attributes(attrs, G))\n")
 
     N = "N"
-    write(stream, " node $(_parse_attributes(attrs, N))];\n")
+    str_N = _parse_attributes(attrs, N)
+    if !isempty(strip(str_N))
+        write(stream, " node $str_N];\n")
+    end
 
     E = "E"
-    write(stream, " edge $(_parse_attributes(attrs, E))];\n")
+    str_E = _parse_attributes(attrs, E)
+    if !(isempty(strip(str_E)))
+        write(stream, " edge $str_E];\n")
+    end
 end
 
 
@@ -93,7 +100,6 @@ function _to_dot_edge_attributes(g::AbstractSimpleWeightedGraph, stream::IO, att
         attr_ = attrs[("weights", "P")]
         (attr_ == "true") ? edge_label = true : edge_label = false
     end
-    @show edge_label
 
     # check if colored or path:
     (!isempty(path)) ? show_path = true : show_path = false
