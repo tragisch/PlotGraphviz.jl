@@ -15,6 +15,7 @@ Tokenize = "0796e94c-ce3b-5d07-9a54-7f471281c624"
 Graphs = "1"
 Revise = "3"
 ShowGraphviz = "0.1"
+SimpleWeightedGraphs = "1"
 Tokenize = "0.5"
 julia = "1"
 
