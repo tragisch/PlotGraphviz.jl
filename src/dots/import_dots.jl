@@ -42,7 +42,6 @@ end
 function read_dot_file(filename::AbstractString)
     # to count total lines in the file
     node_count = 0
-    edge_count = 0
 
     directed = false
 
@@ -54,7 +53,6 @@ function read_dot_file(filename::AbstractString)
     # get size of graph
     f = open(filename, "r")
     for line in readlines(f)
-        # (line_type, nodes, weight, attrs) = _read_dotline_simple(line, attrs)
         line_type = _read_dotline_simple(line)
         if line_type == "DiGraph"
             directed = true
@@ -94,7 +92,7 @@ function read_dot_file(filename::AbstractString)
         adj = adj'
         return SimpleWeightedDiGraph(adj), attrs
     else
-        attrs[("concentrate", "G")] = "true"
+        set!(attrs["G"], "concetrate", "true")
         return SimpleWeightedGraph(adj), attrs
     end
 
@@ -174,7 +172,8 @@ function _read_options_line!(attrs, tokens)
 
     if !isempty(keys)
         for (k, a) in zip(keys, attributes)
-            attrs[(k, str_a)] = a
+            set!(attrs, str_a, (k, a))
+            # attrs[(k, str_a)] = a
         end
     end
 
@@ -213,6 +212,7 @@ function _read_edge_line!(attrs, tokens, node_array)
         elseif ((token.kind == Tokenize.Tokens.IDENTIFIER)
                 || (token.kind == Tokenize.Tokens.INTEGER)
                 || (token.kind == Tokenize.Tokens.FLOAT)
+                || (token.kind == Tokenize.Tokens.STRING)
                 || (token.kind == Tokenize.Tokens.TRUE)
                 || (token.kind == Tokenize.Tokens.FALSE)) && (options == true) && (weight_identifier == false)
 
@@ -241,11 +241,13 @@ function _read_edge_line!(attrs, tokens, node_array)
         for (k, a) in zip(keys, attributes)
             pa = nodes[1]
             kid = nodes[2]
-            attrs[(k, "E$pa-$kid")] = a
+            set!(attrs, "E$pa-$kid", (k, a))
         end
     end
 
-    (weight != 1) ? attrs[("weights", "P")] = "true" : attrs[("weights", "P")] = "false"
+    # (weight != 1) ? attrs[("weights", "P")] = "true" : attrs[("weights", "P")] = "false"
+
+    (weight != 1) ? set!(attrs, "P", ("weights", "true")) : set!(attrs, "P", ("weights", "false"))
 
     return nodes, weight, attrs, node_array
 
@@ -259,6 +261,7 @@ function _read_node_line!(attrs, tokens, node_array)
     attributes = []
 
     for token in tokens
+        # @show token
         if token.kind == Tokenize.Tokens.WHITESPACE
             continue
         elseif token.kind == Tokenize.Tokens.COMMA
@@ -271,6 +274,7 @@ function _read_node_line!(attrs, tokens, node_array)
             options = true # ab jetzt zählst
         elseif ((token.kind == Tokenize.Tokens.IDENTIFIER)
                 || (token.kind == Tokenize.Tokens.INTEGER)
+                || (token.kind == Tokenize.Tokens.STRING)
                 || (token.kind == Tokenize.Tokens.FLOAT)
                 || (token.kind == Tokenize.Tokens.TRUE)
                 || (token.kind == Tokenize.Tokens.FALSE)) && (options == true)
@@ -286,7 +290,7 @@ function _read_node_line!(attrs, tokens, node_array)
 
     if !isempty(keys)
         for (k, a) in zip(keys, attributes)
-            attrs[(k, "N$node_number")] = a
+            set!(attrs, "N$node_number", (k, a))
         end
     end
 
@@ -307,6 +311,7 @@ function _read_graph_line!(attrs, tokens)
         elseif ((token.kind == Tokenize.Tokens.IDENTIFIER)
                 || (token.kind == Tokenize.Tokens.INTEGER)
                 || (token.kind == Tokenize.Tokens.FLOAT)
+                || (token.kind == Tokenize.Tokens.STRING)
                 || (token.kind == Tokenize.Tokens.TRUE)
                 || (token.kind == Tokenize.Tokens.FALSE))
 
@@ -319,7 +324,7 @@ function _read_graph_line!(attrs, tokens)
             end
         end
     end
-    attrs[(str_key, "G")] = str_attribute
+    set!(attrs, "G", (str_key, str_attribute))
     return attrs
 end
 
@@ -332,6 +337,8 @@ function _line_type(tokens)
             return "DiGraph"
         elseif token.val == "graph"
             return "Graph"
+        elseif token.val == "//"
+            return "commentary"
         elseif token.val == "node"
             return "node_options"
         elseif token.val == "edge"
@@ -365,7 +372,7 @@ function _set_node_array!(node_array, attrs, val)
         end
         push!(node_array, node(node_id, val))
 
-        attrs[("label", "N$node_id")] = val
+        set!(attrs, "N$node_id", ("label", val))
 
         return node_id, attrs, node_array
     end

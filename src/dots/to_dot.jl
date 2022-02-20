@@ -10,27 +10,26 @@
 
 # internal function to get a suitable string out of the attribute dictionary:
 function _parse_attributes(attrs::AttributeDict, gne::String)
-
-    gne_attrs = _get_GNE_attributes(attrs, gne)
     str_attr::String = ""
+    if haskey(attrs, gne)
+        gne_attrs = attrs[gne] # _get_GNE_attributes(attrs, gne)
 
-    if has_attribute(gne_attrs, "N"; idx = 2) # node attributes
-        str_attr = string("[", join(map(a -> _to_dot(a[1][1], a[2]), collect(gne_attrs)), ","))
-    elseif has_attribute(gne_attrs, "G"; idx = 2) # graph attributes
-        for key in keys(gne_attrs)
-            if key[2] == "G"
-                str_attr = str_attr * string(_to_dot(key[1], gne_attrs[key]), ";\n ")
+
+        if contains(gne, "N") # node attributes
+            str_attr = string("[", join(map(a -> _to_dot(a[1], a[2]), collect(gne_attrs)), ","))
+        elseif contains(gne, "G") # graph attributes
+            for key in gne_attrs
+                str_attr = str_attr * string(_to_dot(key[1], key[2]), ";\n ")
             end
+        elseif contains(gne, "E") # edge attributes
+            str_attr = string("[", join(map(a -> _to_dot(a[1], a[2]), collect(gne_attrs)), ","))
         end
-    elseif has_attribute(gne_attrs, "E"; idx = 2) # edge attributes
-        str_attr = string("[", join(map(a -> _to_dot(a[1][1], a[2]), collect(gne_attrs)), ","))
     end
     return str_attr
 end
 
 # internal functions to identify strings:
-_to_dot(sym::Symbol, value::String) = "$sym=$value"
-_to_dot(sym::String, value::String) = "$sym=$value"
+_to_dot(sym::String, value::Any) = "$sym=$value"
 _graph_type_string(graph::AbstractSimpleWeightedGraph) = Graphs.is_directed(graph) ? "digraph" : "graph"
 _edge_op(graph::AbstractSimpleWeightedGraph) = Graphs.is_directed(graph) ? "->" : "--"
 
@@ -41,7 +40,7 @@ function _to_dot_graph_attributes(g::AbstractSimpleWeightedGraph, stream::IO, at
     # write beginning: graph or digraph:
     graph_type_string = Graphs.is_directed(g) ? "digraph" : "graph"
     write(stream, "$graph_type_string {\n")
-    attrs[("type", "P")] = graph_type_string
+    set!(attrs, "P", ("type", graph_type_string))
 
     # write general attributes, belongs to all elements:
     G = "G"
@@ -96,10 +95,10 @@ end
 function _to_dot_edge_attributes(g::AbstractSimpleWeightedGraph, stream::IO, attrs::AttributeDict, path, colors)
 
     # check if `weighted` and labeled:
-    if has_attribute(attrs, "weights")
-        attr_ = attrs[("weights", "P")]
-        (attr_ == "true") ? edge_label = true : edge_label = false
-    end
+    # if has_attribute(attrs, "weights")
+    attr_ = val(attrs["P"], "weights")
+    (attr_ == "true") ? edge_label = true : edge_label = false
+    # end
 
     # check if colored or path:
     (!isempty(path)) ? show_path = true : show_path = false

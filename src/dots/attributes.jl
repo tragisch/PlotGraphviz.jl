@@ -2,7 +2,7 @@
 
 
 #typealias
-const AttributeDict = Dict{Tuple{String,String},String}
+const AttributeDict = Dict{Any,Array{Tuple{String,Any}}}
 
 """
     default_attributes(g)
@@ -22,25 +22,27 @@ function get_attributes(graph::AbstractSimpleWeightedGraph; node_label::Bool = t
     n = nv(graph)
     #size_graph=minimum(5.0 +*/sqrt, 15.0)  # ToDo: automated scaler
     attr = AttributeDict(
-        ("weights", "P") => (edge_label) ? "true" : "false",
-        ("largenet", "P") => "200",
-        ("arrowsize", "E") => "0.5",
-        ("arrowtype", "E") => "normal",
-        ("center", "G") => "1",
-        ("overlap", "G") => "scale",
-        ("color", "N") => "Turquoise",
-        ("concentrate", "G") => "true",
-        ("fontsize", "N") => (node_label) ? ((n < 100) ? "7.0" : "5.0") : "1.0",
-        ("width", "N") => (node_label) ? "0.25" : "0.20",
-        ("height", "N") => (node_label) ? "0.25" : "0.20",
-        ("fixedsize", "N") => "true",
-        ("fontsize", "E") => (edge_label) ? "8.0" : "1.0",
-        ("layout", "G") => (directed) ? "dot" : "neato", # dot or neato
-        ("size", "G") => (n < 20) ? "3.0" : ((n < 100) ? "7.0" : "10.0"),
-        ("shape", "N") => (node_label) ? "circle" : "point"
-    )
-
-    if n > parse(Int64, attr[("largenet", "P")])
+        "P" => [
+            ("weights", (edge_label) ? "true" : "false"),
+            ("largenet", "200")],
+        "G" => [
+            ("center", "1"),
+            ("overlap", "scale"),
+            ("concentrate", "true"),
+            ("layout", (directed) ? "dot" : "neato"),
+            ("size", (n < 20) ? "3.0" : ((n < 100) ? "7.0" : "10.0"))],
+        "N" => [
+            ("color", "Turquoise"),
+            ("fontsize", (node_label) ? ((n < 100) ? "7.0" : "5.0") : "1.0"),
+            ("width", (node_label) ? "0.25" : "0.20"),
+            ("height", (node_label) ? "0.25" : "0.20"),
+            ("fixedsize", "true"), ("shape", (node_label) ? "circle" : "point")],
+        "E" => [
+            ("arrowsize", "0.5"),
+            ("arrowtype", "normal"),
+            ("fontsize", (edge_label) ? "8.0" : "1.0")
+        ])
+    if n > parse(Int64, val(attr["P"], "largenet"))
         attr = _mod_attr_large_network!(attr)
     end
 
@@ -49,23 +51,65 @@ end
 
 # internal function to modify `GraphViz` plot-paramter for large graphs
 function _mod_attr_large_network!(attrs::AttributeDict)
-    attrs[("shape", "N")] = "point"
-    attrs[("color", "N")] = "black"
-    attrs[("fontsize", "G")] = "1"
-    attrs[("concetrate", "G")] = "true"
-    attrs[("layout", "G")] = "sfdp"
-    attrs[("weights", "P")] = "false"
-    return attrs
+    set!(attrs["N"], "shape", "point")
+    set!(attrs["N"], "color", "black")
+    set!(attrs["G"], "fontsize", "1")
+    set!(attrs["G"], "concetrate", "true")
+    set!(attrs["G"], "layout", "sfdp")
+    set!(attrs["P"], "weights", "false")
+    set!(attrs["N"], "shape", "point")
 end
 
-# internal function to return bool if key = symb or "GEN"=node, edge or Graph identifier.
-function has_attribute(dict::AttributeDict, symb::String; idx = 1)
-    for key in dict
-        if contains(key[1][idx], symb) # key[1][idx] == symb
-            return true
+# return val of attribute:
+function val(attributes::Array{Tuple{String,Any}}, attribute::String)
+    if !isempty(attributes)
+        for a in attributes
+            if a[1] == attribute
+                return a[2]
+            end
         end
     end
-    return false
+    return []
+end
+
+# set val to attributeDict
+function set!(attrs::AttributeDict, key, attribute::Tuple{String,Any})
+    if haskey(attrs, key)
+        set!(attrs[key], attribute[1], attribute[2])
+    else
+        attrs[key] = [attribute]
+    end
+end
+
+# set val of attribute:
+function set!(attributes::Array{Tuple{String,Any}}, attribute::String, val)
+    if isempty(attributes)
+        push!(attributes, (attribute, val))
+    else
+        for i = 1:length(attributes)
+            if (attributes[i][1] == attribute) && !(attributes[i][2] == val)
+                attributes[i] = (attribute, val)
+                return attributes
+            elseif (attributes[i][1] == attribute) && (attributes[i][2] == val)
+                return attributes
+            end
+        end
+        push!(attributes, (attribute, val))
+    end
+    return attributes
+end
+
+# remove attribute of attributes
+function rm!(attributes::Array{Tuple{String,Any}}, attribute::String)
+    if !isempty(attributes)
+        for i = 1:length(attributes)
+            if attributes[i] == attribute
+                attributes = deleteat!(attributes, i)
+                return attributes
+            end
+        end
+    end
+    return attributes
 end
 
 
