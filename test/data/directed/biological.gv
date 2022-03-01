@@ -1,9 +1,21 @@
 digraph g {
 	rankdir=LR;
 
-	node [shape=rpromoter colorscheme=rdbu5 color=1 style=filled fontcolor=3]; Hef1a; TRE; UAS; Hef1aLacOid;
+	{
+    node [shape=rpromoter colorscheme=rdbu5 color=1 style=filled fontcolor=3]; 
+    Hef1a; 
+    TRE; 
+    UAS; 
+    Hef1aLacOid;
+    }
 	Hef1aLacOid [label="Hef1a-LacOid"];
-	node [shape=rarrow colorscheme=rdbu5 color=5 style=filled fontcolor=3]; Gal4VP16; LacI; rtTA3; DeltamCherry;
+	{
+    node [shape=rarrow colorscheme=rdbu5 color=5 style=filled fontcolor=3]; 
+    Gal4VP16; 
+    LacI; 
+    rtTA3; 
+    DeltamCherry;
+    }
 	Gal4VP16 [label="Gal4-VP16"];	
 	product [shape=oval style=filled colorscheme=rdbu5 color=2 label=""];
 	repression [shape=oval label="LacI repression" fontcolor=black style=dotted];
