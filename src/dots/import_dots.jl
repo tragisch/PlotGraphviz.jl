@@ -8,373 +8,201 @@ ToDo: ERROR-Handling if not a suitable DOT-File is not implemented
 #### Arguments
 - `file::AbstractString`: the filename of dot-file (i.e. "graph.dot")
 """
+function read_dot_file(filename::AbstractString)
 
-struct node
-    id::Int64
-    name
+    # read_file
+    my_graph = read_graph(filename)
+
+    # use ParserCombinator.Parsers.DOT to convert to attributes
+    graphs_parser_combinator = ParserCombinator.Parsers.DOT.parse_dot(my_graph)
+
+    # use first graph (toDo for more graphs)  !!! PROBLEM
+    if length(graphs_parser_combinator) == 1
+        # @show length(graphs_parser_combinator)
+        graph_parser_combinator = graphs_parser_combinator[1]
+    else
+        graph_parser_combinator = graphs_parser_combinator[1]
+    end
+
+    attrs = init_Attributes!(graph_parser_combinator)
+
+    # set! attributes
+    set_attributes!(attrs, graph_parser_combinator)
+
+    # get AbstractSimpleWeightedGraph
+    g = get_AbstractSimpleWeightedGraph(attrs)
+
+    return g, attrs
 end
 
-#get max id of an array of node(s)
-function _max_id(nodes)
-    max = 0
-    if !isempty(nodes)
-        for n in nodes
-            (n.id > max) ? max = n.id : nothing
+
+function read_graph(filename)
+    f = open(filename, "r")
+    s = read(f, String)
+    close(f)
+    return s
+end
+
+
+function init_Attributes!(g)
+    if isdefined(g, :directed)
+        node_options = [PlotGraphviz.Property("directed", g.directed)]
+    end
+
+    # nodes:
+    nd = ParserCombinator.Parsers.DOT.nodes(g)
+    nodes = []
+    count = 1
+    for key in nd.dict
+        push!(nodes, PlotGraphviz.gvNode(count, String(key[1]),
+            [Property("label", check_value(String(key[1])))]))
+        count += 1
+    end
+
+    # edges:
+    eg = ParserCombinator.Parsers.DOT.edges(g)
+    edges = []
+    for tup in eg.dict
+        to = get_id(nodes, String(tup[1][1]))
+        from = get_id(nodes, String(tup[1][2]))
+        push!(edges, PlotGraphviz.gvEdge(to, from, Properties()))
+        if g.directed == false
+            push!(edges, PlotGraphviz.gvEdge(from, to, Properties()))
         end
     end
-    return max
+    subgraphs = (gvSubGraph)[]
+
+    return GraphvizAttributes(node_options, Properties(), Properties(), Properties(), subgraphs, nodes, edges)
+
 end
 
-# return
-function _get_node(nodes, str)
-    if !isempty(nodes)
-        for n in nodes
-            if str == n.name
-                return n
+function set_attributes!(attrs, g)
+
+    for stm in g.stmts
+
+        if stm isa ParserCombinator.Parsers.DOT.Attribute
+            set!(attrs.graph_options, String(stm.name.id), check_value(String(stm.value.id)))
+        elseif stm isa ParserCombinator.Parsers.DOT.GraphAttributes
+            for attr in stm.attrs
+                set!(attrs.graph_options, String(attr.name.id), check_value(String(attr.value.id)))
+            end
+        elseif stm isa ParserCombinator.Parsers.DOT.NodeAttributes
+            for attr in stm.attrs
+                set!(attrs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
+            end
+        elseif stm isa ParserCombinator.Parsers.DOT.EdgeAttributes
+            for attr in stm.attrs
+                set!(attrs.edge_options, String(attr.name.id), check_value(String(attr.value.id)))
+            end
+        elseif stm isa ParserCombinator.Parsers.DOT.Edge
+            if !(isempty(stm.attrs))
+                for attr in stm.attrs
+                    set_edge!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[1].id.id)), get_id(attrs.nodes, String(stm.nodes[2].id.id)),
+                        Property(String(attr.name.id), check_value(String(attr.value.id))))
+                    if (g.directed == false)
+                        set_edge!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[2].id.id)), get_id(attrs.nodes, String(stm.nodes[1].id.id)),
+                            Property(String(attr.name.id), check_value(String(attr.value.id))))
+                    end
+                end
+            end
+        elseif stm isa ParserCombinator.Parsers.DOT.Node
+            if !(isempty(stm.attrs))
+                for attr in stm.attrs
+                    set_node!(attrs.nodes, get_id(attrs.nodes, String(stm.id.id.id)),
+                        Property(String(attr.name.id), check_value(String(attr.value.id))))
+                end
+            end
+        elseif stm isa ParserCombinator.Parsers.DOT.SubGraph
+            if !isnothing(stm.id)
+                push!(attrs.subgraphs, gvSubGraph(String(stm.id.id)))
+            else
+                push!(attrs.subgraphs, gvSubGraph(""))
+            end
+
+            set_subgraph!(attrs.subgraphs[end], stm, attrs.nodes, g.directed)
+        end
+    end
+
+end
+
+
+function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGraph, nodes::gvNodes, directed::Bool)
+    # @show subs
+    for stm in g.stmts
+        if stm isa ParserCombinator.Parsers.DOT.Node
+            push!(subs.nodes, gvNode(get_id(nodes, String(stm.id.id.id)), String(stm.id.id.id), Properties()))
+            for attr in stm.attrs
+                set_node!(subs.nodes, get_id(nodes, String(stm.id.id.id)),
+                    Property(String(attr.name.id), check_value(String(attr.value.id))))
+            end
+        elseif stm isa ParserCombinator.Parsers.DOT.Attribute
+            set!(subs.graph_options, String(stm.name.id), check_value(String(stm.value.id)))
+        elseif stm isa ParserCombinator.Parsers.DOT.NodeAttributes
+            for attr in stm.attrs
+                set!(subs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
+            end
+        elseif stm isa ParserCombinator.Parsers.DOT.Edge
+            push!(subs.edges, gvEdge(get_id(nodes, String(stm.nodes[1].id.id)), get_id(nodes, String(stm.nodes[2].id.id)), Properties()))
+            if (directed == false)
+                push!(subs.edges, gvEdge(get_id(nodes, String(stm.nodes[2].id.id)), get_id(nodes, String(stm.nodes[1].id.id)), Properties()))
+            end
+
+            if !(isempty(stm.attrs))
+                for attr in stm.attrs
+                    set_edge!(subs.edges, get_id(nodes, String(stm.nodes[1].id.id)), get_id(nodes, String(stm.nodes[2].id.id)),
+                        Property(String(attr.name.id), check_value(String(attr.value.id))))
+                    if (directed == false)
+                        set_edge!(subs.edges, get_id(nodes, String(stm.nodes[2].id.id)), get_id(nodes, String(stm.nodes[1].id.id)),
+                            Property(String(attr.name.id), check_value(String(attr.value.id))))
+                    end
+                end
             end
         end
+
     end
-    return 0
+
 end
 
+function get_AbstractSimpleWeightedGraph(attrs::GraphvizAttributes)
+    nodes = attrs.nodes
+    ndim = length(nodes)
+    adj = zeros(ndim, ndim)
 
+    directed = val(attrs.plot_options, "directed")
 
-function read_dot_file(filename::AbstractString)
-    # to count total lines in the file
-    node_count = 0
-
-    directed = false
-
-    # generate an AtributeDict
-    attrs = AttributeDict()
-    node_array = Vector{node}()
-
-
-    # get size of graph
-    f = open(filename, "r")
-    for line in readlines(f)
-        line_type = _read_dotline_simple(line)
-        if line_type == "DiGraph"
-            directed = true
-        elseif line_type == "node"
-            node_count += 1
+    for e in attrs.edges
+        weight = val_edge(attrs.edges, e.from, e.to, "xlabel")
+        if !(isempty(weight))
+            adj[e.from, e.to] = parse(Float64, weight)
+            (directed == false) ? adj[e.to, e.from] = parse(Float64, weight) : nothing
+        else
+            adj[e.from, e.to] = 1
+            (directed == false) ? adj[e.to, e.from] = 1 : nothing
         end
-    end
-    close(f)
-
-
-    edge_array = []
-
-    # get edges
-    f = open(filename, "r")  ### ah, twice??
-    for line in readlines(f)
-        (line_type, nodes, weight, attrs, node_array) = _read_dotline(line, attrs, node_array)
-        if line_type == "edge"
-            push!(edge_array, (nodes, weight))
-        end
-    end
-    # close file
-    close(f)
-
-    g_dim = _max_id(node_array)
-    adj = zeros(g_dim, g_dim)
-
-    for e in edge_array
-        node = e[1]
-        adj[node[1], node[2]] = e[2]
-        if directed == false
-            adj[node[2], node[1]] = e[2]
-        end
-
     end
 
     if directed
-        adj = adj'
-        return SimpleWeightedDiGraph(adj), attrs
+        return SimpleWeightedDiGraph(adj)
     else
-        set!(attrs["G"], "concetrate", "true")
-        return SimpleWeightedGraph(adj), attrs
+        return SimpleWeightedGraph(adj)
     end
-
 end
 
-function _read_dotline_simple(str::String)
-    tokens = collect(tokenize(str))
-    (isempty(strip(str)) == true) ? line_type = nothing : line_type = _line_type(tokens)
-    return line_type
-end
-
-
-function _read_dotline(str::String, attrs::AttributeDict, node_array)
-
-    tokens = collect(tokenize(str))
-    nodes = []
-    weight = 1
-    # get line_type
-    (isempty(strip(str)) == true) ? line_type = nothing : line_type = _line_type(tokens)
-
-
-    # call line-read function:
-    if line_type == "Graph"
-        # now?
-    elseif line_type == "DiGraph"
-        # now?
-    elseif line_type == "graph"
-        attrs = _read_graph_line!(attrs, tokens)
-    elseif line_type == "node"
-        attrs, node_array = _read_node_line!(attrs, tokens, node_array)
-    elseif line_type == "edge"
-        nodes, weight, attrs, node_array = _read_edge_line!(attrs, tokens, node_array)
-    elseif (line_type == "node_options") || (line_type == "edge_options")
-        attrs = _read_options_line!(attrs, tokens)
-    elseif (line_type == "graph_options")
-
-    end
-
-    return (line_type, nodes, weight, attrs, node_array)
-
-end
-
-function _read_options_line!(attrs, tokens)
-    options = false
-    count = 0
-    keys = []
-    attributes = []
-    edge_node = ""
-
-    for token in tokens
-        if token.kind == Tokenize.Tokens.WHITESPACE
-            continue
-        elseif (token.kind == Tokenize.Tokens.COMMA) || (token.kind == Tokenize.Tokens.OP)
-            continue
-        elseif (token.kind == Tokenize.Tokens.INTEGER) && (options == false)
-            continue
-        elseif (token.kind == Tokenize.Tokens.IDENTIFIER) && (options == false)
-            edge_node = token.val
-        elseif token.kind == Tokenize.Tokens.LSQUARE
-            options = true # ab jetzt zählst
-        elseif ((token.kind == Tokenize.Tokens.IDENTIFIER)
-                || (token.kind == Tokenize.Tokens.INTEGER)
-                || (token.kind == Tokenize.Tokens.FLOAT)
-                || (token.kind == Tokenize.Tokens.TRUE)
-                || (token.kind == Tokenize.Tokens.FALSE)) && (options == true)
-            if count == 0
-                count = 1
-                push!(keys, token.val)
-            else
-                count = 0
-                push!(attributes, token.val)
-            end
-        end
-    end
-
-    (edge_node == "node") ? str_a = "N" : str_a = "E"
-
-    if !isempty(keys)
-        for (k, a) in zip(keys, attributes)
-            set!(attrs, str_a, (k, a))
-            # attrs[(k, str_a)] = a
-        end
-    end
-
-    return attrs
-
-end
-
-function _read_edge_line!(attrs, tokens, node_array)
-    nodes = zeros(Int64, 2)
-    child = false
-    options = false
-    count = 0
-    keys = []
-    attributes = []
-    weight = 1
-    weight_identifier = false
-
-    for token in tokens
-        if token.kind == Tokenize.Tokens.WHITESPACE
-            continue
-        elseif (token.kind == Tokenize.Tokens.COMMA) || (token.kind == Tokenize.Tokens.OP)
-            continue
-        elseif ((token.kind == Tokenize.Tokens.INTEGER) || (token.kind == Tokenize.Tokens.IDENTIFIER)) && (options == false)
-            if child == false
-                val, attrs, node_array = _set_node_array!(node_array, attrs, token.val)
-                nodes[1] = val
-                child = true
-            else
-                val, attrs, node_array = _set_node_array!(node_array, attrs, token.val)
-                nodes[2] = val
-                # child = false
-            end
-
-        elseif token.kind == Tokenize.Tokens.LSQUARE
-            options = true
-        elseif ((token.kind == Tokenize.Tokens.IDENTIFIER)
-                || (token.kind == Tokenize.Tokens.INTEGER)
-                || (token.kind == Tokenize.Tokens.FLOAT)
-                || (token.kind == Tokenize.Tokens.STRING)
-                || (token.kind == Tokenize.Tokens.TRUE)
-                || (token.kind == Tokenize.Tokens.FALSE)) && (options == true) && (weight_identifier == false)
-
-            if (token.val == "xlabel")
-                weight_identifier = true
-            else
-
-                if count == 0
-                    count = 1
-                    push!(keys, token.val)
-                else
-                    count = 0
-                    push!(attributes, token.val)
+const special_characters = ["+", "-", "&", " "]
+function check_value(value::T) where {T}
+    if value isa String
+        if isempty(value)
+            value = "\" " * "\""
+        else
+            for e in special_characters
+                if (contains(value, e) == true)
+                    value = "\"" * value * "\""
+                    break
                 end
             end
-        elseif ((token.kind == Tokenize.Tokens.FLOAT)
-                ||
-                (token.kind == Tokenize.Tokens.INTEGER)) && (weight_identifier == true)
-            weight = parse(Float64, token.val)
-            weight_identifier = false
-        end
-
-    end
-
-    if !isempty(keys)
-        for (k, a) in zip(keys, attributes)
-            pa = nodes[1]
-            kid = nodes[2]
-            set!(attrs, "E$pa-$kid", (k, a))
         end
     end
-
-    # (weight != 1) ? attrs[("weights", "P")] = "true" : attrs[("weights", "P")] = "false"
-
-    (weight != 1) ? set!(attrs, "P", ("weights", "true")) : set!(attrs, "P", ("weights", "false"))
-
-    return nodes, weight, attrs, node_array
-
+    return value
 end
 
-function _read_node_line!(attrs, tokens, node_array)
-    node_number = 0
-    options = false
-    count = 0
-    keys = []
-    attributes = []
-
-    for token in tokens
-        # @show token
-        if token.kind == Tokenize.Tokens.WHITESPACE
-            continue
-        elseif token.kind == Tokenize.Tokens.COMMA
-            continue
-        elseif ((token.kind == Tokenize.Tokens.INTEGER) || (token.kind == Tokenize.Tokens.IDENTIFIER)) && (options == false)
-            val, attrs, node_array = _set_node_array!(node_array, attrs, token.val)
-            node_number = val
-            continue
-        elseif token.kind == Tokenize.Tokens.LSQUARE
-            options = true # ab jetzt zählst
-        elseif ((token.kind == Tokenize.Tokens.IDENTIFIER)
-                || (token.kind == Tokenize.Tokens.INTEGER)
-                || (token.kind == Tokenize.Tokens.STRING)
-                || (token.kind == Tokenize.Tokens.FLOAT)
-                || (token.kind == Tokenize.Tokens.TRUE)
-                || (token.kind == Tokenize.Tokens.FALSE)) && (options == true)
-            if count == 0
-                count = 1
-                push!(keys, token.val)
-            else
-                count = 0
-                push!(attributes, token.val)
-            end
-        end
-    end
-
-    if !isempty(keys)
-        for (k, a) in zip(keys, attributes)
-            set!(attrs, "N$node_number", (k, a))
-        end
-    end
-
-    return attrs, node_array
-
-end
-
-function _read_graph_line!(attrs, tokens)
-    str_key = ""
-    str_attribute = ""
-
-    count = 0
-    for token in tokens
-        if token.kind == Tokenize.Tokens.WHITESPACE
-            continue
-        elseif token.kind == Tokenize.Tokens.OP
-            continue
-        elseif ((token.kind == Tokenize.Tokens.IDENTIFIER)
-                || (token.kind == Tokenize.Tokens.INTEGER)
-                || (token.kind == Tokenize.Tokens.FLOAT)
-                || (token.kind == Tokenize.Tokens.STRING)
-                || (token.kind == Tokenize.Tokens.TRUE)
-                || (token.kind == Tokenize.Tokens.FALSE))
-
-            if count == 0
-                str_key = token.val
-                count = count + 1
-            else
-                str_attribute = token.val
-                break
-            end
-        end
-    end
-    set!(attrs, "G", (str_key, str_attribute))
-    return attrs
-end
-
-# determine line_type (for future enhancements)
-function _line_type(tokens)
-    line_type = "node"
-    start_options = false
-    for token in tokens
-        if token.val == "digraph"
-            return "DiGraph"
-        elseif token.val == "graph"
-            return "Graph"
-        elseif token.val == "//"
-            return "commentary"
-        elseif token.val == "node"
-            return "node_options"
-        elseif token.val == "edge"
-            return "edge_options"
-        elseif ((Tokenize.Tokens.exactkind(token) == Tokenize.Tokens.ANON_FUNC)
-                ||
-                (Tokenize.Tokens.exactkind(token) == Tokenize.Tokens.ERROR))
-            return "edge"
-        elseif token.kind == Tokenize.Tokens.LSQUARE
-            start_options = true
-            idx_LSQARE = token.startpos[2]
-        elseif (token.kind == Tokenize.Tokens.EQ) && (start_options == false)
-            return "graph"
-        elseif (token.kind == Tokenize.Tokens.RBRACE)
-            return "nothing"
-        end
-    end
-    return line_type
-end
-
-# set node_array and AttributeDict and return node_id
-function _set_node_array!(node_array, attrs, val)
-    n = _get_node(node_array, val)
-    if n != 0
-        return n.id, attrs, node_array
-    else
-        if !(isequal(tryparse(Int, val), nothing))
-            node_id = parse(Int, val)
-        else
-            node_id = _max_id(node_array) + 1
-        end
-        push!(node_array, node(node_id, val))
-
-        set!(attrs, "N$node_id", ("label", val))
-
-        return node_id, attrs, node_array
-    end
-end
 
