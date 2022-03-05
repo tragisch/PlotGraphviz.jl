@@ -111,10 +111,10 @@ function GraphvizAttributes(graph::AbstractSimpleWeightedGraph; node_label::Bool
 end
 
 # setter
-function set_edge!(edges::gvEdges, from::Int, to::Int, attribute::Property)
+function set_edge!(edges::gvEdges, from::Int, to::Int, attribute::Property; override = true)
     if !isempty(edges)
         for e in edges
-            if (e.from == from) && (e.to == to)
+            if (e.from == from) && (e.to == to) && (override == true)
                 set!(e.attributes, attribute.key, attribute.value)
             end
         end
