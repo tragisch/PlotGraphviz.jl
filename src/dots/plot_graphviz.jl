@@ -7,7 +7,6 @@ Render graph `g` in iJulia using `Graphviz` engines.
 
 #### Arguments
 - `g::AbstractSimpleWeightedGraph`: a graph representation to export 
-- (optional) `node_label::Bool`: if true all nodes are numberd fom 1:N (default = true)
 - (optional) `edge_label::Bool`: if true all edges are labeled with their weights (default = false)
 - (optional) `path = []`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
 - (optional) `colors = zeros(Int, nv(mat))`: Color nodes using Brewer Color Scheme (max 9 colors).
@@ -29,6 +28,23 @@ function plot_graphviz(g::AbstractSimpleWeightedGraph;
 
     gv_dot = string_dot(g, attrs, path, colors)
     plot_graphviz(gv_dot)
+end
+
+function plot_graphviz(tup::Tuple{SimpleWeightedDiGraph{Int64,Float64},GraphvizAttributes};
+    edge_label::Bool = false,
+    colors = zeros(Int, SimpleWeightedGraphs.nv(tup[1])),
+    path = [],
+    scale = 3.0,
+    landscape = false)
+
+    g = tup[1]
+    attrs = tup[2]
+
+    (edge_label) ? set!(attrs.graph_options, "forcelabels", "true") : set!(attrs.graph_options, "forcelabels", "false")
+    (landscape) ? set!(attrs.graph_options, "rankdir", "LR") : set!(attrs.graph_options, "rankdir", "TB")
+
+    plot_graphviz(g, attrs; path, colors, scale)
+
 end
 
 

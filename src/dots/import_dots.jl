@@ -11,14 +11,16 @@ ToDo: ERROR-Handling if not a suitable DOT-File is not implemented
 function read_dot_file(filename::AbstractString)
 
     # read_file
-    my_graph = read_graph(filename)
+    #my_graph = read_graph(filename)
+
+    # open, read & preprocessing
+    my_graph = preprocessing(filename)
 
     # use ParserCombinator.Parsers.DOT to convert to attributes
     graphs_parser_combinator = ParserCombinator.Parsers.DOT.parse_dot(my_graph)
 
     # use first graph (toDo for more graphs)  !!! PROBLEM
     if length(graphs_parser_combinator) == 1
-        # @show length(graphs_parser_combinator)
         graph_parser_combinator = graphs_parser_combinator[1]
     else
         graph_parser_combinator = graphs_parser_combinator[1]
@@ -33,6 +35,120 @@ function read_dot_file(filename::AbstractString)
     g = get_AbstractSimpleWeightedGraph(attrs)
 
     return g, attrs
+end
+
+function openfile(filename)
+    f = open(filename, "r")
+    lines = readlines(f)
+    close(f)
+    lines
+end
+
+function preprocessing(filename)
+    lines = openfile(filename)
+    new_lines = []
+    temp = ""
+    multi_line_option = false
+    subgraph = false
+    for line in lines
+
+        # some small corrections:
+        line = replace(line, "\t" => "")
+        line = replace(line, " ]" => "]")
+        line = replace(line, "[ " => "[")
+
+        # delete comments and empty lines:
+        if !isnothing(findfirst("//", lstrip(line))) || !isnothing(findfirst("/*", lstrip(line))) || !isnothing(findfirst("*", lstrip(line))) || isempty(line)
+            continue
+        end
+
+        if !(multi_line_option)
+
+            # multi subgraph lines:
+            if !isnothing(findfirst("{", lstrip(line)))
+                idx = findfirst("{", lstrip(line))
+                if idx.stop < 2
+                    subgraph = true
+                    multi_line_option = true
+                end
+            end
+
+            # in case of edge line: 
+            # if !(isnothing(findfirst("--", line))) || !(isnothing(findfirst("->", line)))
+            #     push!(new_lines, line)
+            #     continue
+            # end
+
+            optionend = findfirst("]", line)
+
+            # if multi-line syntax:
+            if !isnothing(findfirst("[", line)) && isnothing(optionend)
+                temp = temp * line
+                multi_line_option = true
+                continue
+            end
+
+            # one-line sub-graph "node"
+            if !isnothing(optionend)
+
+                if isnothing(findfirst("{", line[1:optionend.start]))
+
+                    if (isnothing(findfirst("--", line))) && (isnothing(findfirst("->", line)))
+
+                        if !(isempty(line[optionend.stop+1:end]))
+
+                            if isnothing(findfirst("{", line[optionend.stop:end]))
+
+                                if !(lstrip(line[(optionend.stop+1):end]) == ";") || (isempty(lstrip(line[(optionend.stop+1):end])))
+                                    str = "subgraph {\n " * line * " \n}"
+                                    push!(new_lines, str)
+                                    continue
+                                end
+                            else
+                                idx = findfirst("{", line[optionend.stop:end])
+                                str = insert_at!(line, "\n", (optionend.stop + idx.start - 1))
+                                push!(new_lines, str)
+                                continue
+                            end
+                        end
+                    end
+                end
+            end
+
+
+
+
+            # add line to new_lines
+            push!(new_lines, line)
+        else
+
+            if (subgraph == false)
+                temp = temp * " " * line
+                if !isnothing(findfirst("]", line))
+                    temp = replace(temp, "\t" => "")
+                    temp = replace(temp, " ]" => "]")
+                    temp = replace(temp, "[ " => "[")
+                    push!(new_lines, temp)
+                    multi_line_option = false
+                    temp = ""
+                end
+            else
+                push!(new_lines, line)
+                if !isnothing(findfirst("}", lstrip(line)))
+                    subgraph = false
+                    multi_line_option = false
+                end
+            end
+        end
+    end
+
+    # #DEBUG:
+    for line in new_lines
+        @show line
+    end
+
+
+    return Base.join(new_lines, "\n")
 end
 
 
@@ -70,6 +186,8 @@ function init_Attributes!(g)
             push!(edges, PlotGraphviz.gvEdge(from, to, Properties()))
         end
     end
+
+    # subgraphs
     subgraphs = (gvSubGraph)[]
 
     return GraphvizAttributes(node_options, Properties(), Properties(), Properties(), subgraphs, nodes, edges)
@@ -95,14 +213,18 @@ function set_attributes!(attrs, g)
                 set!(attrs.edge_options, String(attr.name.id), check_value(String(attr.value.id)))
             end
         elseif stm isa ParserCombinator.Parsers.DOT.Edge
+
             if !(isempty(stm.attrs))
+
                 for attr in stm.attrs
                     set_edge!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[1].id.id)), get_id(attrs.nodes, String(stm.nodes[2].id.id)),
-                        Property(String(attr.name.id), check_value(String(attr.value.id))))
+                        Property(String(attr.name.id), check_value(String(attr.value.id))); override = true)
+
                     if (g.directed == false)
                         set_edge!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[2].id.id)), get_id(attrs.nodes, String(stm.nodes[1].id.id)),
-                            Property(String(attr.name.id), check_value(String(attr.value.id))))
+                            Property(String(attr.name.id), check_value(String(attr.value.id))); override = true)
                     end
+
                 end
             end
         elseif stm isa ParserCombinator.Parsers.DOT.Node
@@ -113,13 +235,32 @@ function set_attributes!(attrs, g)
                 end
             end
         elseif stm isa ParserCombinator.Parsers.DOT.SubGraph
-            if !isnothing(stm.id)
+            if !isnothing(stm.id) # use only cluster as subgraphs.
                 push!(attrs.subgraphs, gvSubGraph(String(stm.id.id)))
+                set_subgraph!(attrs.subgraphs[end], stm, attrs.nodes, g.directed)
             else
-                push!(attrs.subgraphs, gvSubGraph(""))
+                # all other subgraphs are lazy syntax
+                attributes = Properties()
+                for attr_sub in stm.stmts
+                    if attr_sub isa ParserCombinator.Parsers.DOT.NodeAttributes
+                        for attr in attr_sub.attrs
+                            set!(attributes, String(attr.name.id), check_value(String(attr.value.id)))
+                        end
+                    end
+                end
+
+                # for all node in subgraph
+                for attr_sub in stm.stmts
+                    if attr_sub isa ParserCombinator.Parsers.DOT.Node
+                        for single_attr in attributes
+                            set_node!(attrs.nodes, get_id(attrs.nodes, String(attr_sub.id.id.id)), single_attr)
+                        end
+                    end
+
+                end
             end
 
-            set_subgraph!(attrs.subgraphs[end], stm, attrs.nodes, g.directed)
+
         end
     end
 
@@ -127,7 +268,6 @@ end
 
 
 function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGraph, nodes::gvNodes, directed::Bool)
-    # @show subs
     for stm in g.stmts
         if stm isa ParserCombinator.Parsers.DOT.Node
             push!(subs.nodes, gvNode(get_id(nodes, String(stm.id.id.id)), String(stm.id.id.id), Properties()))
@@ -141,19 +281,26 @@ function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGrap
             for attr in stm.attrs
                 set!(subs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
             end
-        elseif stm isa ParserCombinator.Parsers.DOT.Edge
-            push!(subs.edges, gvEdge(get_id(nodes, String(stm.nodes[1].id.id)), get_id(nodes, String(stm.nodes[2].id.id)), Properties()))
-            if (directed == false)
-                push!(subs.edges, gvEdge(get_id(nodes, String(stm.nodes[2].id.id)), get_id(nodes, String(stm.nodes[1].id.id)), Properties()))
+        elseif stm isa ParserCombinator.Parsers.DOT.EdgeAttributes
+            for attr in stm.attrs
+                set!(subs.edge_options, String(attr.name.id), check_value(String(attr.value.id)))
             end
+        elseif stm isa ParserCombinator.Parsers.DOT.Edge
+            for i = 1:(length(stm.nodes)-1)
+                push!(subs.edges, gvEdge(get_id(nodes, String(stm.nodes[i].id.id)), get_id(nodes, String(stm.nodes[i+1].id.id)), Properties()))
 
-            if !(isempty(stm.attrs))
-                for attr in stm.attrs
-                    set_edge!(subs.edges, get_id(nodes, String(stm.nodes[1].id.id)), get_id(nodes, String(stm.nodes[2].id.id)),
-                        Property(String(attr.name.id), check_value(String(attr.value.id))))
-                    if (directed == false)
-                        set_edge!(subs.edges, get_id(nodes, String(stm.nodes[2].id.id)), get_id(nodes, String(stm.nodes[1].id.id)),
+                if (directed == false)
+                    push!(subs.edges, gvEdge(get_id(nodes, String(stm.nodes[i+1].id.id)), get_id(nodes, String(stm.nodes[i].id.id)), Properties()))
+                end
+
+                if !(isempty(stm.attrs))
+                    for attr in stm.attrs
+                        set_edge!(subs.edges, get_id(nodes, String(stm.nodes[i].id.id)), get_id(nodes, String(stm.nodes[i+1].id.id)),
                             Property(String(attr.name.id), check_value(String(attr.value.id))))
+                        if (directed == false)
+                            set_edge!(subs.edges, get_id(nodes, String(stm.nodes[i+1].id.id)), get_id(nodes, String(stm.nodes[i].id.id)),
+                                Property(String(attr.name.id), check_value(String(attr.value.id))))
+                        end
                     end
                 end
             end
@@ -171,6 +318,7 @@ function get_AbstractSimpleWeightedGraph(attrs::GraphvizAttributes)
     directed = val(attrs.plot_options, "directed")
 
     for e in attrs.edges
+
         weight = val_edge(attrs.edges, e.from, e.to, "xlabel")
         if !(isempty(weight))
             adj[e.from, e.to] = parse(Float64, weight)
@@ -191,18 +339,35 @@ end
 const special_characters = ["+", "-", "&", " "]
 function check_value(value::T) where {T}
     if value isa String
-        if isempty(value)
-            value = "\" " * "\""
-        else
-            for e in special_characters
-                if (contains(value, e) == true)
-                    value = "\"" * value * "\""
-                    break
-                end
-            end
-        end
+        value = "\"" * value * "\""
+        # if isempty(value)
+        #     value = "\" " * "\""
+        # else
+        #     for e in special_characters
+        #         if (contains(value, e) == true)
+        #             value = "\"" * value * "\""
+        #             break
+        #         end
+        #     end
+        # end
     end
     return value
 end
+
+function insert_at!(str::String, insert::String, at::Int)
+    len = length(str)
+    str_f = ""
+    str_e = ""
+    new_string = ""
+
+    if (at > 0) && (at <= len)
+        str_f = str[1:at-1]
+        str_e = str[at:end]
+        new_string = str_f * insert * str_e
+    end
+
+    return new_string
+end
+
 
 

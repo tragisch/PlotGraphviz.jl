@@ -2,7 +2,7 @@
 
 abstract type GraphvizPoperties end
 
-mutable struct Property{T} 
+mutable struct Property{T}
     key::String
     value::T
 end
@@ -36,9 +36,9 @@ function haskey(attributes::Properties, key::String)
 end
 
 # set val to attributeDict
-function set!(attributes::Properties, key::String, value)
+function set!(attributes::Properties, key::String, value; override = true)
     key_exist, idx = haskey(attributes, key)
-    if key_exist
+    if key_exist & (override == true)
         attributes[idx].value = value
     else
         push!(attributes, Property(key, value))
