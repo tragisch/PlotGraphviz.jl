@@ -26,7 +26,7 @@ function dot(g::AbstractSimpleWeightedGraph, stream::IO, attrs::GraphvizAttribut
 
     set!(attrs.plot_options, "type", graph_type_string)
     set!(attrs.graph_options, "concentrate", "true")
-    # set!(attrs.graph_options, "layout", (directed) ? "dot" : "neato")
+    set!(attrs.graph_options, "layout", (directed) ? "dot" : "neato")
 
     # write GENERAL attributes, belongs to all elements:
     write(stream, " graph$(parse_attributes(attrs.graph_options))]\n")

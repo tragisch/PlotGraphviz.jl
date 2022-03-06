@@ -49,6 +49,7 @@ function preprocessing(filename)
     new_lines = []
     temp = ""
     multi_line_option = false
+    subgraph = false
     for line in lines
 
         # some small corrections:
@@ -56,10 +57,21 @@ function preprocessing(filename)
         line = replace(line, " ]" => "]")
         line = replace(line, "[ " => "[")
 
-        # delete comments:
-
+        # delete comments and empty lines:
+        if !isnothing(findfirst("//", lstrip(line))) || !isnothing(findfirst("/*", lstrip(line))) || !isnothing(findfirst("*", lstrip(line))) || isempty(line)
+            continue
+        end
 
         if !(multi_line_option)
+
+            # multi subgraph lines:
+            if !isnothing(findfirst("{", lstrip(line)))
+                idx = findfirst("{", lstrip(line))
+                if idx.stop < 2
+                    subgraph = true
+                    multi_line_option = true
+                end
+            end
 
             # in case of edge line: 
             # if !(isnothing(findfirst("--", line))) || !(isnothing(findfirst("->", line)))
@@ -78,30 +90,54 @@ function preprocessing(filename)
 
             # one-line sub-graph "node"
             if !isnothing(optionend)
-                if !isnothing(findfirst("{", line[1:optionend.start]))
-                    if !(isempty(line[optionend.stop+3:end]))
-                        if isnothing(findfirst("{", line[optionend.stop:end]))
-                            str = "subgraph { " * line * " }"
-                            push!(new_lines, str)
-                            continue
-                        else
-                            str = line * "\n"
-                            push!(new_lines, str)
-                            continue
+
+                if isnothing(findfirst("{", line[1:optionend.start]))
+
+                    if (isnothing(findfirst("--", line))) && (isnothing(findfirst("->", line)))
+
+                        if !(isempty(line[optionend.stop+1:end]))
+
+                            if isnothing(findfirst("{", line[optionend.stop:end]))
+
+                                if !(lstrip(line[(optionend.stop+1):end]) == ";") || (isempty(lstrip(line[(optionend.stop+1):end])))
+                                    str = "subgraph {\n " * line * " \n}"
+                                    push!(new_lines, str)
+                                    continue
+                                end
+                            else
+                                idx = findfirst("{", line[optionend.stop:end])
+                                str = insert_at!(line, "\n", (optionend.stop + idx.start - 1))
+                                push!(new_lines, str)
+                                continue
+                            end
                         end
                     end
                 end
             end
 
+
+
+
             # add line to new_lines
             push!(new_lines, line)
         else
-            temp = temp * " " * line
-            if !isnothing(findfirst("]", line))
-                temp = replace(temp, "\t" => "")
-                push!(new_lines, temp)
-                multi_line_option = false
-                temp = ""
+
+            if (subgraph == false)
+                temp = temp * " " * line
+                if !isnothing(findfirst("]", line))
+                    temp = replace(temp, "\t" => "")
+                    temp = replace(temp, " ]" => "]")
+                    temp = replace(temp, "[ " => "[")
+                    push!(new_lines, temp)
+                    multi_line_option = false
+                    temp = ""
+                end
+            else
+                push!(new_lines, line)
+                if !isnothing(findfirst("}", lstrip(line)))
+                    subgraph = false
+                    multi_line_option = false
+                end
             end
         end
     end
@@ -199,13 +235,32 @@ function set_attributes!(attrs, g)
                 end
             end
         elseif stm isa ParserCombinator.Parsers.DOT.SubGraph
-            if !isnothing(stm.id)
+            if !isnothing(stm.id) # use only cluster as subgraphs.
                 push!(attrs.subgraphs, gvSubGraph(String(stm.id.id)))
+                set_subgraph!(attrs.subgraphs[end], stm, attrs.nodes, g.directed)
             else
-                push!(attrs.subgraphs, gvSubGraph(""))
+                # all other subgraphs are lazy syntax
+                attributes = Properties()
+                for attr_sub in stm.stmts
+                    if attr_sub isa ParserCombinator.Parsers.DOT.NodeAttributes
+                        for attr in attr_sub.attrs
+                            set!(attributes, String(attr.name.id), check_value(String(attr.value.id)))
+                        end
+                    end
+                end
+
+                # for all node in subgraph
+                for attr_sub in stm.stmts
+                    if attr_sub isa ParserCombinator.Parsers.DOT.Node
+                        for single_attr in attributes
+                            set_node!(attrs.nodes, get_id(attrs.nodes, String(attr_sub.id.id.id)), single_attr)
+                        end
+                    end
+
+                end
             end
 
-            set_subgraph!(attrs.subgraphs[end], stm, attrs.nodes, g.directed)
+
         end
     end
 
@@ -263,6 +318,7 @@ function get_AbstractSimpleWeightedGraph(attrs::GraphvizAttributes)
     directed = val(attrs.plot_options, "directed")
 
     for e in attrs.edges
+
         weight = val_edge(attrs.edges, e.from, e.to, "xlabel")
         if !(isempty(weight))
             adj[e.from, e.to] = parse(Float64, weight)
@@ -297,5 +353,21 @@ function check_value(value::T) where {T}
     end
     return value
 end
+
+function insert_at!(str::String, insert::String, at::Int)
+    len = length(str)
+    str_f = ""
+    str_e = ""
+    new_string = ""
+
+    if (at > 0) && (at <= len)
+        str_f = str[1:at-1]
+        str_e = str[at:end]
+        new_string = str_f * insert * str_e
+    end
+
+    return new_string
+end
+
 
 
