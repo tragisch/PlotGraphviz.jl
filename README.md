@@ -2,7 +2,7 @@
 
 - `PlotGraphviz.jl` tries to unleash the power of **Graphviz** in your IJulia environment. It is using [`ShowGraphviz.jl`](https://github.com/tkf/ShowGraphviz.jl), which derive various show methods from text/vnd.graphviz (https://graphviz.org). To parse dot files it uses [`ParserCombinator.jl`](https://github.com/andrewcooke/ParserCombinator.jl/blob/master/src/dot/DOT.jl).
 
-- `PlotGraphviz.jl` present a simple interface for (nearly) all features of Graphviz. 
+- `PlotGraphviz.jl` presents a simple interface for (nearly) all features of Graphviz. 
 
 - `PlotGraphviz.jl` accepts graphs from [`SimpleWeightedGraphs.jl`](https://github.com/JuliaGraphs/SimpleWeightedGraphs.jl)
 
