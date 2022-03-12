@@ -369,7 +369,7 @@ L= spath(path, 25, 3)
 
 
 
-Represent shortest path in graph:
+And that represents the shortest path in graph, and we can visualize this unsing the $path$ option:
 
 
 ```julia
