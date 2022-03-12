@@ -391,5 +391,6 @@ Open issues
 - Not all test graphs are imported correcty.
 - Performance issues has to be solved
 - Design Patterns and Best Practices to be implemented.
+- **Test** are missing!
 
 
