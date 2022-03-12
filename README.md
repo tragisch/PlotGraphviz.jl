@@ -39,7 +39,7 @@ plot_graphviz(g)
 
 
     
-![svg](README_files/README_8_0.svg)
+![svg](docs/README_files/README_8_0.svg)
     
 
 
@@ -67,7 +67,7 @@ plot_graphviz(SimpleWeightedGraph(grid))
 
 
     
-![svg](README_files/README_11_0.svg)
+![svg](docs/README_files/README_11_0.svg)
     
 
 
@@ -90,7 +90,7 @@ plot_graphviz(mk, attrs)
 
 
     
-![svg](README_files/README_15_0.svg)
+![svg](docs/README_files/README_15_0.svg)
     
 
 
@@ -114,7 +114,7 @@ plot_graphviz(mk, attrs)
 
 
     
-![svg](README_files/README_19_0.svg)
+![svg](docs/README_files/README_19_0.svg)
     
 
 
@@ -132,7 +132,7 @@ plot_graphviz(mk, attrs; scale = 5)
 
 
     
-![svg](README_files/README_21_0.svg)
+![svg](docs/README_files/README_21_0.svg)
     
 
 
@@ -151,7 +151,7 @@ plot_graphviz(mk, attrs; scale = 5)
 
 
     
-![svg](README_files/README_23_0.svg)
+![svg](docs/README_files/README_23_0.svg)
     
 
 
@@ -173,7 +173,7 @@ plot_graphviz(mk, attrs; scale = 5)
 
 
     
-![svg](README_files/README_25_0.svg)
+![svg](docs/README_files/README_25_0.svg)
     
 
 
@@ -191,7 +191,7 @@ plot_graphviz(mk, attrs; scale = 5)
 
 
     
-![svg](README_files/README_27_0.svg)
+![svg](docs/README_files/README_27_0.svg)
     
 
 
@@ -209,7 +209,7 @@ plot_graphviz(mk, attrs; scale = 5)
 
 
     
-![svg](README_files/README_29_0.svg)
+![svg](docs/README_files/README_29_0.svg)
     
 
 
@@ -264,7 +264,7 @@ plot_graphviz(g2; edge_label=true, scale=6)
 
 
     
-![svg](README_files/README_40_0.svg)
+![svg](docs/README_files/README_40_0.svg)
     
 
 
@@ -314,7 +314,7 @@ plot_graphviz(g2, attrs2; colors = color_vec, scale = 7)
 
 
     
-![svg](README_files/README_45_0.svg)
+![svg](docs/README_files/README_45_0.svg)
     
 
 
@@ -337,7 +337,7 @@ plot_graphviz(lydag; landscape = true, scale = 7)
 
 
     
-![svg](README_files/README_49_0.svg)
+![svg](docs/README_files/README_49_0.svg)
     
 
 
@@ -381,7 +381,7 @@ plot_graphviz(lydag; landscape = true, scale = 7, path = L)
 
 
     
-![svg](README_files/README_56_0.svg)
+![svg](docs/README_files/README_56_0.svg)
     
 
 
@@ -392,4 +392,5 @@ Open issues
 - Not all test graphs are imported correcty.
 - Performance issues has to be solved
 - Design Patterns and Best Practices to be implemented.
+
 
