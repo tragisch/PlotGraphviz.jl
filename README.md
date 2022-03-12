@@ -8,12 +8,11 @@
 
 ## How to use it
 
+Generate some Graphs by importing `Graphs.jl` and `SimpleWeightedGraphs.jl`:
 
 ```julia
 using Graphs, SimpleWeightedGraphs
 ```
-
-Generate some Graphs by importing `Graphs.jl` and `SimpleWeightedGraphs.jl`:
 
 
 ```julia
