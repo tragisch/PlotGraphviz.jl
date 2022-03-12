@@ -11,7 +11,7 @@ Render graph `g` in iJulia using `Graphviz` engines.
 - (optional) `path = []`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
 - (optional) `colors = zeros(Int, nv(mat))`: Color nodes using Brewer Color Scheme (max 9 colors).
 - (optional) `scale = 3.0`: Scale your plot
-- (optional) `landscape = false`: render landscape, but node-labes are not rotated as well.
+- (optional) `landscape = false`: if true > set `rankdir` to `LR`
 """
 function plot_graphviz(g::AbstractSimpleWeightedGraph;
     edge_label::Bool = false,
@@ -60,6 +60,7 @@ Render graph `g` in **iJulia** using `Graphviz` engines.
 - (optional) `path = []`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
 - (optional) `colors = zeros(Int, nv(mat))`: Color nodes using Brewer Color Scheme (max 9 colors).
 - (optional) `scale = 3.0`: Scale your plot
+- (optional) `landscape = false`: if true > set `rankdir` to `LR`
 """
 function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
     path = [],

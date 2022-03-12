@@ -102,16 +102,37 @@ function GraphvizAttributes(graph::AbstractSimpleWeightedGraph; node_label::Bool
         end
     end
 
-    # modifier by large networks:
-    # if n > large_graph
-    #    attr = _mod_attr_large_network!(attr)
-    # end
+    gv_attr = GraphvizAttributes(plot_options, graph_options, node_options, edge_options, gvSubGraphs(), nodes, edges)
 
-    return GraphvizAttributes(plot_options, graph_options, node_options, edge_options, gvSubGraphs(), nodes, edges)
+    # modifier by large networks:
+    if n > large_graph
+        gv_attr = mod_attr_large_network!(gv_attr)
+    end
+
+    return gv_attr
 end
 
-# setter
-function set_edge!(edges::gvEdges, from::Int, to::Int, attribute::Property; override = true)
+function mod_attr_large_network!(attrs::GraphvizAttributes)
+    set!(attrs.graph_options, "fontsize", "1")
+    set!(attrs.graph_options, "concetrate", "true")
+    set!(attrs.graph_options, "layout", "sfdp")
+    set!(attrs.plot_options, "weights", "false")
+    set!(attrs.node_options, "shape", "point")
+    set!(attrs.node_options, "color", "black")
+
+    return attrs
+end
+
+"""
+    set!(edges::gvEdges, from::Int, to::Int, attribute::Property)
+    set!(edges::gvEdges, from::String, to::String, attribute::Property))
+    set!(nodes::gvNodes, id::Int, attribute::Property)
+    set!(nodes::gvNodes, name::String, attribute::Property)
+
+    set (Graphviz) Property of nodes or edges
+
+"""
+function set!(edges::gvEdges, from::Int, to::Int, attribute::Property; override = true)
     if !isempty(edges)
         for e in edges
             if (e.from == from) && (e.to == to) && (override == true)
@@ -123,8 +144,7 @@ function set_edge!(edges::gvEdges, from::Int, to::Int, attribute::Property; over
     end
 end
 
-
-function set_node!(nodes::gvNodes, id::Int, attribute::Property)
+function set!(nodes::gvNodes, id::Int, attribute::Property)
     if !isempty(nodes)
         for n in nodes
             if n.id == id
@@ -136,8 +156,22 @@ function set_node!(nodes::gvNodes, id::Int, attribute::Property)
     end
 end
 
+
+function set!(nodes::gvNodes, name::String, attribute::Property)
+    if !isempty(nodes)
+        for n in nodes
+            if n.name == name
+                set!(n.attributes, attribute.key, attribute.value)
+            end
+        end
+    else
+        max = _max_id(nodes::gvNodes)
+        push!(nodes, gvNode((max + 1), name, [attribute]))
+    end
+end
+
 # getter:
-function val_edge(edges::gvEdges, from::Int, to::Int, key::String)
+function val(edges::gvEdges, from::Int, to::Int, key::String)
     if !isempty(edges)
         for e in edges
             if (e.from == from) && (e.to == to)
@@ -148,7 +182,7 @@ function val_edge(edges::gvEdges, from::Int, to::Int, key::String)
     return []
 end
 
-function val_node(nodes, id::Int64, key::String)
+function val(nodes, id::Int64, key::String)
     if !isempty(nodes)
         for n in nodes
             if n.id == id
@@ -160,7 +194,6 @@ function val_node(nodes, id::Int64, key::String)
 end
 
 # special functions
-
 function _get_label(nodes::gvNodes, id::Int64)
     if !isempty(nodes)
         for n in nodes
@@ -198,6 +231,19 @@ function get_id(nodes, str)
     end
     return 0
 end
+
+function get_name(nodes, id)
+    if !isempty(nodes)
+        for n in nodes
+            #  labl = val_node(nodes, n.id, "label")
+            if n.id == id
+                return n.name
+            end
+        end
+    end
+    return 0
+end
+
 
 function get_node(nodes::gvNodes, id::Int)
     for node in nodes

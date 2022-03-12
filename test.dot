@@ -1,0 +1,45 @@
+digraph G {
+ graph[size="5", concentrate="true", layout="dot", rankdir="LR"]
+ node[shape="box"]
+ edge[color="blue"]
+subgraph cluster_0 { 
+ graph[style="filled", color="Turquoise", label="process #NEW 1"]
+ node[style="filled", color="white"]
+ edge[]
+ 9 -> 4 [];
+ 4 -> 3 [];
+ 3 -> 1 [];
+}
+subgraph cluster_1 { 
+ graph[label="process #2", color="blue"]
+ node[style="filled"]
+ edge[]
+ 1 [color=green];
+ 8 -> 10 [];
+ 10 -> 6 [];
+ 6 -> 5 [];
+}
+ 1 [label="a3"];
+ 2 [label="start", shape="Mdiamond"];
+ 3 [label="a2"];
+ 4 [label="a1"];
+ 5 [label="b3"];
+ 6 [label="b2"];
+ 7 [label="end", shape="Msquare"];
+ 8 [label="b0", color="green"];
+ 9 [label="a0", shape="triangle", filled="true", color="yellow"];
+ 10 [label="b1"];
+ 3 -> 1 [];
+ 2 -> 8 [];
+ 1 -> 7 [];
+ 8 -> 10 [];
+ 9 -> 4 [];
+ 6 -> 5 [];
+ 4 -> 3 [];
+ 6 -> 1 [];
+ 4 -> 5 [];
+ 10 -> 6 [];
+ 1 -> 9 [];
+ 2 -> 9 [color="red", xlabel="2.0", fontsize="8.0"];
+ 5 -> 7 [];
+}

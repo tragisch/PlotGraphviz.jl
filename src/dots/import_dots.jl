@@ -34,6 +34,12 @@ function read_dot_file(filename::AbstractString)
     # get AbstractSimpleWeightedGraph
     g = get_AbstractSimpleWeightedGraph(attrs)
 
+    n = nv(g)
+    large_graph = 200
+    if n > large_graph
+        attrs = mod_attr_large_network!(attrs)
+    end
+
     return g, attrs
 end
 
@@ -143,9 +149,9 @@ function preprocessing(filename)
     end
 
     # #DEBUG:
-    for line in new_lines
-        @show line
-    end
+    #for line in new_lines
+    #    @show line
+    #end
 
 
     return Base.join(new_lines, "\n")
@@ -217,11 +223,11 @@ function set_attributes!(attrs, g)
             if !(isempty(stm.attrs))
 
                 for attr in stm.attrs
-                    set_edge!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[1].id.id)), get_id(attrs.nodes, String(stm.nodes[2].id.id)),
+                    set!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[1].id.id)), get_id(attrs.nodes, String(stm.nodes[2].id.id)),
                         Property(String(attr.name.id), check_value(String(attr.value.id))); override = true)
 
                     if (g.directed == false)
-                        set_edge!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[2].id.id)), get_id(attrs.nodes, String(stm.nodes[1].id.id)),
+                        set!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[2].id.id)), get_id(attrs.nodes, String(stm.nodes[1].id.id)),
                             Property(String(attr.name.id), check_value(String(attr.value.id))); override = true)
                     end
 
@@ -230,7 +236,7 @@ function set_attributes!(attrs, g)
         elseif stm isa ParserCombinator.Parsers.DOT.Node
             if !(isempty(stm.attrs))
                 for attr in stm.attrs
-                    set_node!(attrs.nodes, get_id(attrs.nodes, String(stm.id.id.id)),
+                    set!(attrs.nodes, get_id(attrs.nodes, String(stm.id.id.id)),
                         Property(String(attr.name.id), check_value(String(attr.value.id))))
                 end
             end
@@ -253,7 +259,7 @@ function set_attributes!(attrs, g)
                 for attr_sub in stm.stmts
                     if attr_sub isa ParserCombinator.Parsers.DOT.Node
                         for single_attr in attributes
-                            set_node!(attrs.nodes, get_id(attrs.nodes, String(attr_sub.id.id.id)), single_attr)
+                            set!(attrs.nodes, get_id(attrs.nodes, String(attr_sub.id.id.id)), single_attr)
                         end
                     end
 
@@ -272,7 +278,7 @@ function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGrap
         if stm isa ParserCombinator.Parsers.DOT.Node
             push!(subs.nodes, gvNode(get_id(nodes, String(stm.id.id.id)), String(stm.id.id.id), Properties()))
             for attr in stm.attrs
-                set_node!(subs.nodes, get_id(nodes, String(stm.id.id.id)),
+                set!(subs.nodes, get_id(nodes, String(stm.id.id.id)),
                     Property(String(attr.name.id), check_value(String(attr.value.id))))
             end
         elseif stm isa ParserCombinator.Parsers.DOT.Attribute
@@ -295,10 +301,10 @@ function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGrap
 
                 if !(isempty(stm.attrs))
                     for attr in stm.attrs
-                        set_edge!(subs.edges, get_id(nodes, String(stm.nodes[i].id.id)), get_id(nodes, String(stm.nodes[i+1].id.id)),
+                        set!(subs.edges, get_id(nodes, String(stm.nodes[i].id.id)), get_id(nodes, String(stm.nodes[i+1].id.id)),
                             Property(String(attr.name.id), check_value(String(attr.value.id))))
                         if (directed == false)
-                            set_edge!(subs.edges, get_id(nodes, String(stm.nodes[i+1].id.id)), get_id(nodes, String(stm.nodes[i].id.id)),
+                            set!(subs.edges, get_id(nodes, String(stm.nodes[i+1].id.id)), get_id(nodes, String(stm.nodes[i].id.id)),
                                 Property(String(attr.name.id), check_value(String(attr.value.id))))
                         end
                     end
@@ -319,7 +325,7 @@ function get_AbstractSimpleWeightedGraph(attrs::GraphvizAttributes)
 
     for e in attrs.edges
 
-        weight = val_edge(attrs.edges, e.from, e.to, "xlabel")
+        weight = val(attrs.edges, e.from, e.to, "xlabel")
         if !(isempty(weight))
             adj[e.from, e.to] = parse(Float64, weight)
             (directed == false) ? adj[e.to, e.from] = parse(Float64, weight) : nothing
@@ -339,7 +345,9 @@ end
 const special_characters = ["+", "-", "&", " "]
 function check_value(value::T) where {T}
     if value isa String
-        value = "\"" * value * "\""
+        if (contains(value, "\"") == false)
+            value = "\"" * value * "\""
+        end
         # if isempty(value)
         #     value = "\" " * "\""
         # else

@@ -64,7 +64,7 @@
 <!-- 1 -->
 <g id="node4" class="node">
 <title>1</title>
-<polygon fill="green" stroke="green" points="454.93,-144 400.93,-144 400.93,-108 454.93,-108 454.93,-144"/>
+<polygon fill="white" stroke="white" points="454.93,-144 400.93,-144 400.93,-108 454.93,-108 454.93,-144"/>
 <text text-anchor="middle" x="427.93" y="-122.3" font-family="Times,serif" font-size="14.00">a3</text>
 </g>
 <!-- 3&#45;&gt;1 -->
@@ -98,7 +98,7 @@
 <!-- 8 -->
 <g id="node5" class="node">
 <title>8</title>
-<polygon fill="green" stroke="green" points="174.23,-52 120.23,-52 120.23,-16 174.23,-16 174.23,-52"/>
+<polygon fill="lightgrey" stroke="black" points="174.23,-52 120.23,-52 120.23,-16 174.23,-16 174.23,-52"/>
 <text text-anchor="middle" x="147.23" y="-30.3" font-family="Times,serif" font-size="14.00">b0</text>
 </g>
 <!-- 10 -->

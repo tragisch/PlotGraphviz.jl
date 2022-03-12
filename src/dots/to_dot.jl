@@ -99,11 +99,11 @@ function color_path!(attrs::GraphvizAttributes, path, g::AbstractSimpleWeightedG
         childs = Graphs.inneighbors(g, node)
 
         if !Base.isnothing(findfirst(isequal(node), path))
-            set_node!(attrs.nodes, node, Property("style", "filled"))
-            set_node!(attrs.nodes, node, Property("fillcolor", color))
+            set!(attrs.nodes, node, Property("style", "filled"))
+            set!(attrs.nodes, node, Property("fillcolor", color))
             for kid in childs
                 if !Base.isnothing(findfirst(isequal(kid), path)) && (kid != path[1])
-                    set_edge!(attrs.edges, node, kid, Property("color", color))
+                    set!(attrs.edges, node, kid, Property("color", color))
                 end
             end
         end

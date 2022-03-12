@@ -11,8 +11,8 @@
 <polygon fill="white" stroke="transparent" points="-4,4 -4,-207 530.93,-207 530.93,4 -4,4"/>
 <g id="clust1" class="cluster">
 <title>cluster_0</title>
-<polygon fill="Turquoise" stroke="Turquoise" points="101.53,-100 101.53,-195 462.93,-195 462.93,-100 101.53,-100"/>
-<text text-anchor="middle" x="282.23" y="-179.8" font-family="Times,serif" font-size="14.00">process #NEW 1</text>
+<polygon fill="lightgrey" stroke="lightgrey" points="101.53,-100 101.53,-195 462.93,-195 462.93,-100 101.53,-100"/>
+<text text-anchor="middle" x="282.23" y="-179.8" font-family="Times,serif" font-size="14.00">process #1</text>
 </g>
 <g id="clust2" class="cluster">
 <title>cluster_1</title>
@@ -64,7 +64,7 @@
 <!-- 1 -->
 <g id="node4" class="node">
 <title>1</title>
-<polygon fill="green" stroke="green" points="454.93,-144 400.93,-144 400.93,-108 454.93,-108 454.93,-144"/>
+<polygon fill="white" stroke="white" points="454.93,-144 400.93,-144 400.93,-108 454.93,-108 454.93,-144"/>
 <text text-anchor="middle" x="427.93" y="-122.3" font-family="Times,serif" font-size="14.00">a3</text>
 </g>
 <!-- 3&#45;&gt;1 -->
@@ -98,7 +98,7 @@
 <!-- 8 -->
 <g id="node5" class="node">
 <title>8</title>
-<polygon fill="green" stroke="green" points="174.23,-52 120.23,-52 120.23,-16 174.23,-16 174.23,-52"/>
+<polygon fill="lightgrey" stroke="black" points="174.23,-52 120.23,-52 120.23,-16 174.23,-16 174.23,-52"/>
 <text text-anchor="middle" x="147.23" y="-30.3" font-family="Times,serif" font-size="14.00">b0</text>
 </g>
 <!-- 10 -->
@@ -156,9 +156,8 @@
 <!-- 2&#45;&gt;9 -->
 <g id="edge18" class="edge">
 <title>2&#45;&gt;9</title>
-<path fill="none" stroke="red" d="M56.66,-90.54C71.75,-97.35 93.31,-107.09 111.5,-115.31"/>
-<polygon fill="red" stroke="red" points="110.09,-118.51 120.65,-119.44 112.97,-112.14 110.09,-118.51"/>
-<text text-anchor="middle" x="83.77" y="-98.64" font-family="Times,serif" font-size="8.00">2.0</text>
+<path fill="none" stroke="blue" d="M56.66,-90.54C71.75,-97.35 93.31,-107.09 111.5,-115.31"/>
+<polygon fill="blue" stroke="blue" points="110.09,-118.51 120.65,-119.44 112.97,-112.14 110.09,-118.51"/>
 </g>
 <!-- 2&#45;&gt;8 -->
 <g id="edge8" class="edge">

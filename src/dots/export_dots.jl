@@ -12,18 +12,18 @@ Export graph `g` to DOT-Format and store it in file `file`.
 - (optional) `colors = zeros(Int, nv(mat))`: Components-colors vector representated by a color number each node.
 """
 function write_dot_file(graph::AbstractSimpleWeightedGraph, filename::AbstractString;
-    attrs = GraphvizAttributes(graph), path = [], colors = zeros(Int, nv(graph)))
+    attributes = GraphvizAttributes(graph), path = [], colors = zeros(Int, nv(graph)))
 
     if !isempty(path)
-        color_path!(attrs, path, graph)
+        color_path!(attributes, path, graph)
     end
 
     if (!is_all_zero(colors))
-        color_nodes!(attrs, colors)
+        color_nodes!(attributes, colors)
     end
 
     open(filename, "w") do f
-        dot(graph, f, attrs)
+        dot(graph, f, attributes)
     end
 end
 

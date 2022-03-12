@@ -35,15 +35,22 @@ function haskey(attributes::Properties, key::String)
     return false, 0
 end
 
+
+function set!(attributes::Properties, prop::Property; override = true)
+    set!(attributes, prop.key, prop.value; override)
+end
+
 # set val to attributeDict
 function set!(attributes::Properties, key::String, value; override = true)
     key_exist, idx = haskey(attributes, key)
     if key_exist & (override == true)
-        attributes[idx].value = value
+        attributes[idx].value = check_value(value)
     else
-        push!(attributes, Property(key, value))
+        push!(attributes, Property(key, check_value(value)))
     end
 end
+
+
 
 # remove attribute of attributes
 function rm!(attributes::Properties, key::String)

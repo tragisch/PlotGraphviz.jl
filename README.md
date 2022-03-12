@@ -1,41 +1,34 @@
 # PlotGraphviz.jl
 
-[![Coverage](https://codecov.io/gh/tragisch/PlotGraphviz.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/tragisch/PlotGraphviz.jl)
+- `PlotGraphviz.jl` tries to unleash the power of **Graphviz** in your IJulia environment. It is using [`ShowGraphviz.jl`](https://github.com/tkf/ShowGraphviz.jl), which derive various show methods from text/vnd.graphviz (https://graphviz.org). To parse dot files it uses [`ParserCombinator.jl`](https://github.com/andrewcooke/ParserCombinator.jl/blob/master/src/dot/DOT.jl).
 
-The goal of `PlotGraphviz.jl` is to unleash the power of  `Graphviz` in your IJulia environment. It is using [`ShowGraphviz.jl`](https://github.com/tkf/ShowGraphviz.jl), which derive various show methods from text/vnd.graphviz and PlotGraphviz.jl present a simple interface for all features of Graphviz (https://graphviz.org).
+- `PlotGraphviz.jl` present a simple interface for (nearly) all features of Graphviz. 
 
-`PlotGraphviz.jl` takes as input graphs from [`SimpleWeightedGraphs.jl`](https://github.com/JuliaGraphs/SimpleWeightedGraphs.jl)
+- `PlotGraphviz.jl` accepts graphs from [`SimpleWeightedGraphs.jl`](https://github.com/JuliaGraphs/SimpleWeightedGraphs.jl)
 
-Currently it is still beta, and not well tested yet.
-
-## How to use
-
-
-```julia
-using Pkg
-Pkg.activate("../.")
-using Revise
-
-using PlotGraphviz
-```
-
-Generate some Graphs by importing `Graphs.jl` and `SimpleWeightedGraphs.jl`:
+## How to use it
 
 
 ```julia
 using Graphs, SimpleWeightedGraphs
 ```
 
+Generate some Graphs by importing `Graphs.jl` and `SimpleWeightedGraphs.jl`:
+
 
 ```julia
-# or use `SimpleWeightedDiGraph` for directed graphs
-g = SimpleWeightedGraph(3)  
+using PlotGraphviz
+```
+
+`SimpleWeightedGraphs.jl` are directly supported:
+
+
+```julia
+g = SimpleWeightedGraph(3)  # or use `SimpleWeightedDiGraph` for directed graphs
 SimpleWeightedGraphs.add_edge!(g, 1, 2, 0.5)
 SimpleWeightedGraphs.add_edge!(g, 2, 3, 0.8)
 SimpleWeightedGraphs.add_edge!(g, 1, 3, 2.0);
 ```
-
-`SimpleWeightedGraphs.jl` are directly supported:
 
 
 ```julia
@@ -46,7 +39,7 @@ plot_graphviz(g)
 
 
     
-![svg](docs/README_files/README_8_0.svg)
+![svg](README_files/README_8_0.svg)
     
 
 
@@ -74,120 +67,18 @@ plot_graphviz(SimpleWeightedGraph(grid))
 
 
     
-![svg](docs/README_files/README_11_0.svg)
+![svg](README_files/README_11_0.svg)
     
 
 
 
-## Plotting Options and Attributes:
+## Importing and modifying graphs
 
-First using a simple random directed graph generator:
-
-
-```julia
-function rand_directed_network(nodeNumber::Int, density::Float64; weights = 1:10)
-    adj_matrix = zeros(nodeNumber, nodeNumber)
-    for row in 1:nodeNumber
-        for element in 1:nodeNumber
-            if rand() < density && (element != row)
-                adj_matrix[row, element] = rand(weights)
-            end
-        end
-    end
-    SimpleWeightedDiGraph(adj_matrix')
-end
-```
-
-
-
-
-    rand_directed_network (generic function with 1 method)
-
-
+First let us import a standard example, and use function `read_dot_file` (more with `?` function)
 
 
 ```julia
-mk = rand_directed_network(20,0.04)
-```
-
-
-
-
-    {20, 19} directed simple Int64 graph with Float64 weights
-
-
-
-### Options:
-
-Some usefull options are 
-- *scale* to increase size of plot and 
-- *edge_label* [true,false] to show the edge weights
-- *node_label* [true,false] to show node_label_number
-- (optional) *landscape* [true,false] for landscape representation, but labels aren't rotated as well.
-
-
-```julia
-plot_graphviz(mk, node_label=false, edge_label=true; scale=4)
-```
-
-
-
-
-    
-![svg](docs/README_files/README_18_0.svg)
-    
-
-
-
-### Attributes:
-
-`Graphviz` offers an endless list of graph attributes to configure graphs representation (see https://graphviz.org/doc/info/attrs.html).
-
-PlotGraphviz attributes list is based on https://github.com/JuliaAttic/OldGraphs.jl/blob/master/src/dot.jl. A dictionary is used to store all graph, node and edge attributes.
-
-To simplify it, a generic attributes dictionary it generate for each graph:
-
-
-```julia
-attrs = get_attributes(mk)
-```
-
-
-
-
-    Dict{Tuple{String, String}, String} with 16 entries:
-      ("overlap", "G")     => "scale"
-      ("layout", "G")      => "dot"
-      ("height", "N")      => "0.25"
-      ("weights", "P")     => "false"
-      ("size", "G")        => "7.0"
-      ("width", "N")       => "0.25"
-      ("fixedsize", "N")   => "true"
-      ("largenet", "P")    => "200"
-      ("shape", "N")       => "circle"
-      ("concentrate", "G") => "true"
-      ("arrowtype", "E")   => "normal"
-      ("color", "N")       => "Turquoise"
-      ("arrowsize", "E")   => "0.5"
-      ("fontsize", "N")    => "7.0"
-      ("center", "G")      => "1"
-      ("fontsize", "E")    => "1.0"
-
-
-
-The *:symbol* belongs to the graphviz' attributes and "G","N", "E" to graph-, node- and edge-attribute. 
-
-For example, to change node color to red:
-
-
-```julia
-attrs[("color", "N")] = "Red"; # red node-color
-attrs[("shape", "N")] = "component"; # change node shape to component
-attrs[("color", "E3-6")] = "Red"  # set edge fom node 3 to 6 to red.
-attrs[("style", "E3-6")] = "dashed" # and dash it
-attrs[("shape", "N8")] = "egg";
-attrs[("style", "N8")] = "filled";
-attrs[("style", "N11")] = "rounded";
+mk, attrs = read_dot_file("./test/data/directed/clust4.gv");
 ```
 
 
@@ -199,52 +90,23 @@ plot_graphviz(mk, attrs)
 
 
     
-![svg](docs/README_files/README_25_0.svg)
+![svg](README_files/README_15_0.svg)
     
 
 
 
-## Import/Export Dot-Files
+The value $attrs$ is a struct, that stores the GraphvizAttributes of the imported graph (as defined in "*.dot" file)
 
-To Import Dot-files a simple Reader is available:
+There are mainly 3 different Graph options available in Graphviz (see website for more):
+- graph_options: attributes/properties, which belongs to complete graph (i.e. rankdir, label, ...)
+- node_options: attributes/properties to modify all nodes
+- edge_options: attributes/properties to modify all edges
 
-
-```julia
-g = read_dot_file("../test/data/large_dag.dot")
-```
-
-
-
-
-    {515, 11929} directed simple Int64 graph with Float64 weights
-
-
+For example to modify the shape of the nodes, we use the `set!` function to modify the properties:
 
 
 ```julia
-plot_graphviz(g; scale = 7.)
-```
-
-
-
-
-    
-![svg](docs/README_files/README_29_0.svg)
-    
-
-
-
-To export in dot-file format:
-
-
-```julia
-write_dot_file(mk,"../test/data/mk_rnd_graph.dot", attributes=attrs);
-```
-
-## Color graph:
-
-
-```julia
+set!(attrs.node_options, Property("shape","box"));
 plot_graphviz(mk, attrs)
 ```
 
@@ -252,30 +114,180 @@ plot_graphviz(mk, attrs)
 
 
     
-![svg](docs/README_files/README_33_0.svg)
+![svg](README_files/README_19_0.svg)
     
 
 
 
-We can mark a *path* or *components* in a graph by color. There are two shortcuts:
+Or to change the orientation and i.e. the edge color:
 
-#### Connected Components:
+
+```julia
+set!(attrs.graph_options, Property("rankdir","LR"));
+set!(attrs.edge_options, Property("color","blue"));
+plot_graphviz(mk, attrs; scale = 5)
+```
+
+
+
+
+    
+![svg](README_files/README_21_0.svg)
+    
+
+
+
+To modify a single node, we need to access the node by its $name (String)$ or its $id (Int)$:
+
+
+```julia
+set!(attrs.nodes, "a0", Property("shape","triangle"))
+set!(attrs.nodes, "a0", Property("filled","true"))
+set!(attrs.nodes, "a0", Property("color","yellow"))
+plot_graphviz(mk, attrs; scale = 5)
+```
+
+
+
+
+    
+![svg](README_files/README_23_0.svg)
+    
+
+
+
+To access a single edge, we have to know the defined $id$.
+
+
+```julia
+id_a0 = get_id(attrs.nodes,"start");
+id_a1 = get_id(attrs.nodes,"a0");
+
+set!(attrs.edges,id_a0, id_a1, Property("color","red"))
+set!(attrs.edges,id_a0, id_a1, Property("xlabel","2.0"))
+set!(attrs.edges,id_a0, id_a1, Property("fontsize","8.0"))
+plot_graphviz(mk, attrs; scale = 5)
+```
+
+
+
+
+    
+![svg](README_files/README_25_0.svg)
+    
+
+
+
+The imported graph $mk, attrs$ consists two subgraphs (of type cluster - see Graphviz). To get access to their attributes we need to change the cluster itself. 
+
+
+```julia
+set!(attrs.subgraphs[1].graph_options, Property("color","Turquoise"));
+set!(attrs.subgraphs[1].graph_options, Property("label","process #NEW 1"));
+plot_graphviz(mk, attrs; scale = 5)
+```
+
+
+
+
+    
+![svg](README_files/README_27_0.svg)
+    
+
+
+
+It is not possible to access a node or edge inside a cluster, you need to manipulate it directly:
+
+
+```julia
+set!(attrs.subgraphs[2].nodes, "b0", Property("color","green")); ## does not work inside a cluster!
+set!(attrs.nodes, "b0", Property("color","green")); ## but this works!
+plot_graphviz(mk, attrs; scale = 5)
+```
+
+
+
+
+    
+![svg](README_files/README_29_0.svg)
+    
+
+
+
+To write and store the graph use `write_dot_file` function:
+
+
+
+```julia
+write_dot_file(mk,"./test.dot"; attributes=attrs);
+```
+
+## Default Attributes:
+
+Back to graph $g$. How to get the Graphviz attributes of this graph? There are two ways:
+1. call an empty constuctor: attrs = GraphivzAttributes()
+2. call the contructor with our graph $g$: attrs = GraphivzAttributes(g::AbstractSimpleWeightedGraph)
+
+The second call generates the default plotting parameter used to represent the graph using `plot_graphviz()`
+
+
+```julia
+attrs = GraphvizAttributes(g)
+```
+
+
+
+
+    GraphvizAttributes(Property[Property{String}("weights", "false"), Property{String}("largenet", "200")], Property[Property{String}("center", "\"1,1\""), Property{String}("overlap", "scale"), Property{String}("concentrate", "true"), Property{String}("layout", "neato"), Property{String}("size", "3.0")], Property[Property{String}("color", "Turquoise"), Property{String}("fontsize", "7.0"), Property{String}("width", "0.25"), Property{String}("height", "0.25"), Property{String}("fixedsize", "true"), Property{String}("shape", "circle")], Property[Property{String}("arrowsize", "0.5"), Property{String}("arrowtype", "normal"), Property{String}("fontsize", "1.0")], PlotGraphviz.gvSubGraph[], gvNode[gvNode(1, "1", Property[]), gvNode(2, "2", Property[]), gvNode(3, "3", Property[])], gvEdge[gvEdge(1, 2, Property[Property{Float64}("xlabel", 0.5)]), gvEdge(1, 3, Property[Property{Float64}("xlabel", 2.0)]), gvEdge(2, 1, Property[Property{Float64}("xlabel", 0.5)]), gvEdge(2, 3, Property[Property{Float64}("xlabel", 0.8)]), gvEdge(3, 1, Property[Property{Float64}("xlabel", 2.0)]), gvEdge(3, 2, Property[Property{Float64}("xlabel", 0.8)])])
+
+
+
+## Color and Path:
+
+There a two special functions available.
+
+### Color the graph:
+
+One typical problem in graph theory is to identity connected components and to color them:
+
+
+```julia
+g2,attrs2 = read_dot_file("./test/data/example.dot");
+```
+
+
+```julia
+plot_graphviz(g2; edge_label=true, scale=6)
+```
+
+
+
+
+    
+![svg](README_files/README_40_0.svg)
+    
+
+
 
 Use Graphs algorithm to indentify connected components:
 
 
 ```julia
-L = Graphs.connected_components(mk)
+L = Graphs.connected_components(g2)
 ```
 
 
 
 
-    4-element Vector{Vector{Int64}}:
-     [1, 3, 4, 6, 7, 8, 9, 10, 11, 13, 15, 16, 17, 18, 19, 20]
-     [2, 5]
+    8-element Vector{Vector{Int64}}:
+     [1, 19]
+     [2, 7, 13, 16]
+     [3, 4, 9, 11]
+     [5, 6, 10, 17, 18]
+     [8, 20]
      [12]
      [14]
+     [15]
 
 
 
@@ -283,7 +295,7 @@ Transform it to a vector for which each number represents the color of node:
 
 
 ```julia
-color_vec = zeros(Int, 1, nv(mk))
+color_vec = zeros(Int, 1, nv(g2))
 color = 1
 for components in L
     for idx in components
@@ -295,14 +307,14 @@ end
 
 
 ```julia
-plot_graphviz(mk, attrs; colors = color_vec)
+plot_graphviz(g2, attrs2; colors = color_vec, scale = 7)
 ```
 
 
 
 
     
-![svg](docs/README_files/README_40_0.svg)
+![svg](README_files/README_45_0.svg)
     
 
 
@@ -313,26 +325,19 @@ Import a small layered dag:
 
 
 ```julia
-lydag = read_dot_file("../test/data/small_layered_dag.dot") 
+lydag, attrs = read_dot_file("./test/data/small_layered_dag.dot");
 ```
 
 
-
-
-    {34, 61} directed simple Int64 graph with Float64 weights
-
-
-
-
 ```julia
-plot_graphviz(lydag, node_label = false; landscape = true, scale = 5)
+plot_graphviz(lydag; landscape = true, scale = 7)
 ```
 
 
 
 
     
-![svg](docs/README_files/README_44_0.svg)
+![svg](README_files/README_49_0.svg)
     
 
 
@@ -341,7 +346,7 @@ To get the shortest path, we use Graphs.jl:
 
 
 ```julia
-path = Graphs.dijkstra_shortest_paths(lydag, nv(lydag));
+path = Graphs.dijkstra_shortest_paths(lydag, 3);
 ```
 
 
@@ -354,14 +359,14 @@ And evaluate shortest path between **super-sink** and **super-source**:
 
 
 ```julia
-L= spath(path, 1, nv(lydag))
+L= spath(path, 25, 3)
 ```
 
 
 
 
     1×12 Matrix{Int64}:
-     34  33  25  24  21  20  15  11  10  8  2  1
+     3  34  26  31  22  16  28  12  11  27  20  25
 
 
 
@@ -369,19 +374,22 @@ Represent shortest path in graph:
 
 
 ```julia
-plot_graphviz(lydag, node_label = false; landscape = true, scale = 5, path = L)
+plot_graphviz(lydag; landscape = true, scale = 7, path = L)
 ```
 
 
 
 
     
-![svg](docs/README_files/README_51_0.svg)
+![svg](README_files/README_56_0.svg)
     
 
 
 
+## Comments
 
-```julia
+Open issues
+- Not all test graphs are imported correcty.
+- Performance issues has to be solved
+- Design Patterns and Best Practices to be implemented.
 
-```
