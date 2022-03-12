@@ -19,7 +19,7 @@ using Graphs, SimpleWeightedGraphs
 using PlotGraphviz
 ```
 
-`SimpleWeightedGraphs.jl` are directly supported:
+and use `SimpleWeightedGraphs.jl` to generate a simple graph:
 
 
 ```julia
@@ -43,7 +43,7 @@ plot_graphviz(g)
 
 
 
-Or use generators from `Graphs.jl`:
+Or use generators from `Graphs.jl`, i.e.:
 
 
 ```julia
@@ -73,7 +73,7 @@ plot_graphviz(SimpleWeightedGraph(grid))
 
 ## Importing and modifying graphs
 
-First let us import a standard example, and use function `read_dot_file` (more with `?` function)
+First, let us import a standard example, and use the function `read_dot_file` (more with `?` function) to import the graph from a dot-file.
 
 
 ```julia
@@ -94,14 +94,14 @@ plot_graphviz(mk, attrs)
 
 
 
-The value $attrs$ is a struct, that stores the GraphvizAttributes of the imported graph (as defined in "*.dot" file)
+The value $attrs$ is a struct, that stores the GraphvizAttributes of the imported graph (as it is defined in "*.dot" file itself)
 
 There are mainly 3 different Graph options available in Graphviz (see website for more):
-- graph_options: attributes/properties, which belongs to complete graph (i.e. rankdir, label, ...)
-- node_options: attributes/properties to modify all nodes
-- edge_options: attributes/properties to modify all edges
+- graph_options: attributes/properties, which belongs to the complete graph (i.e. rankdir, label, ...)
+- node_options: attributes/properties to modify all nodes at once
+- edge_options: attributes/properties to modify all edges at once
 
-For example to modify the shape of the nodes, we use the `set!` function to modify the properties:
+As an example we would like to modify the shape of all nodes. Therefore we use the `set!` function. As we would like to modify the nodes, we have to use the node_options of our struct:
 
 
 ```julia
@@ -118,7 +118,7 @@ plot_graphviz(mk, attrs)
 
 
 
-Or to change the orientation and i.e. the edge color:
+Next we change the orientation of our graph by modifying its graph_options and additionally we change the edge color (using edge_options):
 
 
 ```julia
@@ -155,7 +155,7 @@ plot_graphviz(mk, attrs; scale = 5)
 
 
 
-To access a single edge, we have to know the defined $id$.
+To access a single edge, we have to know its unique $id (Int)$. We can use `get_id` to return the id from a node with a given name.
 
 
 ```julia
@@ -177,7 +177,7 @@ plot_graphviz(mk, attrs; scale = 5)
 
 
 
-The imported graph $mk, attrs$ consists two subgraphs (of type cluster - see Graphviz). To get access to their attributes we need to change the cluster itself. 
+The imported graph $mk, attrs$ consists of two subgraphs (of type cluster - see Graphviz). To get access to their attributes we need to change the cluster itself. 
 
 
 ```julia
@@ -195,7 +195,7 @@ plot_graphviz(mk, attrs; scale = 5)
 
 
 
-It is not possible to access a node or edge inside a cluster, you need to manipulate it directly:
+But it is not possible to access a node or edge inside a cluster. Therefore we can use a built-in trick to manipulate the node directly:
 
 
 ```julia
@@ -213,7 +213,7 @@ plot_graphviz(mk, attrs; scale = 5)
 
 
 
-To write and store the graph use `write_dot_file` function:
+To write and store the graph use the `write_dot_file` function:
 
 
 
@@ -223,11 +223,11 @@ write_dot_file(mk,"./test.dot"; attributes=attrs);
 
 ## Default Attributes:
 
-Back to graph $g$. How to get the Graphviz attributes of this graph? There are two ways:
+Back to our graph $g$. How to get the Graphviz attributes of this graph? Well, there are two ways:
 1. call an empty constuctor: attrs = GraphivzAttributes()
 2. call the contructor with our graph $g$: attrs = GraphivzAttributes(g::AbstractSimpleWeightedGraph)
 
-The second call generates the default plotting parameter used to represent the graph using `plot_graphviz()`
+The second call generates the default plotting parameter, which ist used to represent the graph using `plot_graphviz()`.
 
 
 ```julia
