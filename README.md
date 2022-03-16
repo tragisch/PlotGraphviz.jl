@@ -8,7 +8,7 @@
 
 ## How to use it
 
-Generate some Graphs by importing `Graphs.jl` and `SimpleWeightedGraphs.jl`:
+Generate some graphs by importing `Graphs.jl` or `SimpleWeightedGraphs.jl`:
 
 ```julia
 using Graphs, SimpleWeightedGraphs
@@ -43,7 +43,7 @@ plot_graphviz(g)
 
 
 
-Or use generators from `Graphs.jl`, i.e.:
+You can use generators from `Graphs.jl`, i.e.:
 
 
 ```julia
@@ -73,7 +73,7 @@ plot_graphviz(SimpleWeightedGraph(grid))
 
 ## Importing and modifying graphs
 
-First, let us import a standard example, and use the function `read_dot_file` (more with `?` function) to import the graph from a dot-file.
+First, let us take a standard example, and use the function `read_dot_file` (more with `?` function) to import the graph from a dot-file.
 
 
 ```julia
@@ -96,7 +96,7 @@ plot_graphviz(mk, attrs)
 
 The value $attrs$ is a struct, that stores the GraphvizAttributes of the imported graph (as it is defined in "*.dot" file itself)
 
-There are mainly 3 different Graph options available in Graphviz (see website for more):
+There are mainly 3 different graph options available in Graphviz (see website for more):
 - graph_options: attributes/properties, which belongs to the complete graph (i.e. rankdir, label, ...)
 - node_options: attributes/properties to modify all nodes at once
 - edge_options: attributes/properties to modify all edges at once
@@ -247,7 +247,7 @@ There a two special functions available.
 
 ### Color the graph:
 
-One typical problem in graph theory is to identity connected components and to color them:
+One typical problem in graph theory is to identify connected components and to color them:
 
 
 ```julia
@@ -268,7 +268,7 @@ plot_graphviz(g2; edge_label=true, scale=6)
 
 
 
-Use Graphs algorithm to indentify connected components:
+Use `Graphs.jl` algorithm to identify connected components:
 
 
 ```julia
@@ -369,7 +369,7 @@ L= spath(path, 25, 3)
 
 
 
-And that represents the shortest path in graph, and we can visualize this unsing the $path$ option:
+And that represents the shortest path in our graph, and we can visualize this by using the $path$ option:
 
 
 ```julia
