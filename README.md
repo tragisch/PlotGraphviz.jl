@@ -387,9 +387,9 @@ plot_graphviz(lydag; landscape = true, scale = 7, path = L)
 
 ## Comments
 
-Open issues
+Open issues:
 - Not all test graphs are imported correcty.
-- Performance issues has to be solved
+- Performance issues have to be solved.
 - Design Patterns and Best Practices to be implemented.
 - **Tests** are missing!
 

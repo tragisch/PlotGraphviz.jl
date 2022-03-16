@@ -1,7 +1,7 @@
 name = "PlotGraphviz"
 uuid = "78a92bc3-407c-4e2f-aae5-75bb47a6fe36"
 authors = ["tragisch <uwe@roettgermann.de> and contributors"]
-version = "0.6.2"
+version = "0.6.3"
 
 [deps]
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
