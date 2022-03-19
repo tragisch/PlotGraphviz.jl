@@ -10,10 +10,17 @@ using ShowGraphviz
 
 
 export
-    # visualization mit Graphviz (for small graphs or use file_export:)
-    plot_graphviz, write_dot_file, read_dot_file, GraphvizAttributes,
-    set!, val, rm!, get_id,
-    Property, gvNode, gvEdge, gvEdges
+    # visualization, import, export:
+    plot_graphviz, write_dot_file, read_dot_file,
+
+    # modifier:
+    set!, val, rm!,
+
+    # utility:
+    get_id,
+
+    # data structs:
+    GraphvizAttributes, Property, gvNode, gvEdge, gvEdges
 
 
 include("./dots/attributes.jl")

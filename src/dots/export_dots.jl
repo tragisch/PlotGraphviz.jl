@@ -12,7 +12,7 @@ Export graph `g` to DOT-Format and store it in file `file`.
 - (optional) `colors = zeros(Int, nv(mat))`: Components-colors vector representated by a color number each node.
 """
 function write_dot_file(graph::AbstractSimpleWeightedGraph, filename::AbstractString;
-    attributes = GraphvizAttributes(graph), path = [], colors = zeros(Int, nv(graph)))
+    attributes=GraphvizAttributes(graph), path=[], colors=zeros(Int, nv(graph)))
 
     if !isempty(path)
         color_path!(attributes, path, graph)
@@ -29,7 +29,7 @@ end
 
 
 # internal function to get the dot representation of a graph as a string.
-function string_dot(graph::AbstractSimpleWeightedGraph, attributes = GraphvizAttributes(g), path = [], colors = zeros(Int, nv(g)))
+function string_dot(graph::AbstractSimpleWeightedGraph, attributes=GraphvizAttributes(g), path=[], colors=zeros(Int, nv(g)))
 
     if !isempty(path)
         color_path!(attributes, path, graph)
@@ -42,4 +42,11 @@ function string_dot(graph::AbstractSimpleWeightedGraph, attributes = GraphvizAtt
     str = IOBuffer()
     dot(graph, str, attributes)
     String(take!(str)) #takebuf_string(str)
+end
+
+function save_dot_as(graph::AbstractSimpleWeightedGraph, filename::AbstractString;
+    attributes=GraphvizAttributes(graph), path=[], colors=zeros(Int, nv(graph)))
+
+    ## ToDo
+
 end

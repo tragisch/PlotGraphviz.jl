@@ -70,7 +70,7 @@ function GraphvizAttributes()
 end
 
 # derived from SimpleWeightedGraph
-function GraphvizAttributes(graph::AbstractSimpleWeightedGraph; node_label::Bool = true, edge_label::Bool = false)
+function GraphvizAttributes(graph::AbstractSimpleWeightedGraph; node_label::Bool=true, edge_label::Bool=false)
     directed = Graphs.is_directed(graph)
     n = nv(graph)
     large_graph = 200
@@ -123,16 +123,19 @@ function mod_attr_large_network!(attrs::GraphvizAttributes)
     return attrs
 end
 
+
+#### SETTER:
+
 """
     set!(edges::gvEdges, from::Int, to::Int, attribute::Property)
-    set!(edges::gvEdges, from::String, to::String, attribute::Property))
+    set!(edges::gvNodes, id::String, attribute::Property))
     set!(nodes::gvNodes, id::Int, attribute::Property)
     set!(nodes::gvNodes, name::String, attribute::Property)
 
     set (Graphviz) Property of nodes or edges
 
 """
-function set!(edges::gvEdges, from::Int, to::Int, attribute::Property; override = true)
+function set!(edges::gvEdges, from::Int, to::Int, attribute::Property; override=true)
     if !isempty(edges)
         for e in edges
             if (e.from == from) && (e.to == to) && (override == true)
@@ -156,7 +159,6 @@ function set!(nodes::gvNodes, id::Int, attribute::Property)
     end
 end
 
-
 function set!(nodes::gvNodes, name::String, attribute::Property)
     if !isempty(nodes)
         for n in nodes
@@ -170,7 +172,41 @@ function set!(nodes::gvNodes, name::String, attribute::Property)
     end
 end
 
-# getter:
+
+##### REMOVER:
+
+function rm!(nodes::gvNodes, key::String, attribute::Property)
+    if !isempty(nodes)
+        for n in nodes
+            if n.name == key
+                rm!(n.attributes, attribute.key)
+            end
+        end
+    end
+end
+
+function rm!(nodes::gvNodes, id::Int, attribute::Property)
+    if !isempty(nodes)
+        for n in nodes
+            if n.id == id
+                rm!(n.attributes, attribute.key)
+            end
+        end
+    end
+end
+
+function rm!(edges::gvEdges, from::Int, to::Int, attribute::Property)
+    if !isempty(edges)
+        for e in edges
+            if (e.from == from) && (e.to == to)
+                rm!(e.attributes, attribute.key)
+            end
+        end
+    end
+end
+
+
+##### GETTER:
 function val(edges::gvEdges, from::Int, to::Int, key::String)
     if !isempty(edges)
         for e in edges
@@ -193,7 +229,8 @@ function val(nodes, id::Int64, key::String)
     return []
 end
 
-# special functions
+#### special functions:
+
 function _get_label(nodes::gvNodes, id::Int64)
     if !isempty(nodes)
         for n in nodes
@@ -208,7 +245,6 @@ function _get_label(nodes::gvNodes, id::Int64)
     return []
 end
 
-# get max (number of node) id of nodes
 function _max_id(nodes::gvNodes)
     max = 0
     if !isempty(nodes)
@@ -219,7 +255,6 @@ function _max_id(nodes::gvNodes)
     return max
 end
 
-# return id from node_label!
 function get_id(nodes, str)
     if !isempty(nodes)
         for n in nodes
