@@ -6,6 +6,15 @@
 
 - `PlotGraphviz.jl` accepts graphs from [`SimpleWeightedGraphs.jl`](https://github.com/JuliaGraphs/SimpleWeightedGraphs.jl)
 
+## Installation
+
+Installation is straightforward: enter Pkg mode by hitting ], and then
+
+```julia
+(@v1.7) pkg> add PlotGraphviz
+```
+
+
 ## How to use it
 
 Generate some graphs by importing `Graphs.jl` or `SimpleWeightedGraphs.jl`:
