@@ -13,6 +13,7 @@ SimpleWeightedGraphs = "47aef6b3-ad0c-573a-a1e2-d07658019622"
 [compat]
 Graphs = "1"
 ParserCombinator = "2"
+Revise = "3"
 ShowGraphviz = "0.1"
 SimpleWeightedGraphs = "1"
 julia = "1"
