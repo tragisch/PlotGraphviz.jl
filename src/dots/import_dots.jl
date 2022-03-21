@@ -101,7 +101,7 @@ function preprocessing(filename)
 
                     if (isnothing(findfirst("--", line))) && (isnothing(findfirst("->", line)))
 
-                        if !(isempty(line[optionend.stop+1:end]))
+                        if !(isempty(lstrip(line[optionend.stop+1:end])))
 
                             if isnothing(findfirst("{", line[optionend.stop:end]))
 
@@ -120,9 +120,6 @@ function preprocessing(filename)
                     end
                 end
             end
-
-
-
 
             # add line to new_lines
             push!(new_lines, line)
@@ -149,9 +146,9 @@ function preprocessing(filename)
     end
 
     # #DEBUG:
-    #for line in new_lines
-    #    @show line
-    #end
+    # for line in new_lines
+    #     @show line
+    # end
 
 
     return Base.join(new_lines, "\n")
@@ -224,11 +221,11 @@ function set_attributes!(attrs, g)
 
                 for attr in stm.attrs
                     set!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[1].id.id)), get_id(attrs.nodes, String(stm.nodes[2].id.id)),
-                        Property(String(attr.name.id), check_value(String(attr.value.id))); override = true)
+                        Property(String(attr.name.id), check_value(String(attr.value.id))); override=true)
 
                     if (g.directed == false)
                         set!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[2].id.id)), get_id(attrs.nodes, String(stm.nodes[1].id.id)),
-                            Property(String(attr.name.id), check_value(String(attr.value.id))); override = true)
+                            Property(String(attr.name.id), check_value(String(attr.value.id))); override=true)
                     end
 
                 end
@@ -275,11 +272,30 @@ end
 
 function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGraph, nodes::gvNodes, directed::Bool)
     for stm in g.stmts
-        if stm isa ParserCombinator.Parsers.DOT.Node
+        if stm isa ParserCombinator.Parsers.DOT.SubGraph
+            attrs3 = []
+            for attr_sub in stm.stmts
+
+                if attr_sub isa ParserCombinator.Parsers.DOT.NodeAttributes
+                    for attr3 in attr_sub.attrs
+                        set!(subs.node_options, String(attr3.name.id), check_value(String(attr3.value.id)))
+                        push!(attrs3, attr3)
+                    end
+
+                elseif attr_sub isa ParserCombinator.Parsers.DOT.Node
+                    push!(subs.nodes, gvNode(get_id(nodes, String(attr_sub.id.id.id)), String(attr_sub.id.id.id), Properties()))
+                    for attr in attrs3
+                        set!(subs.nodes, get_id(nodes, String(attr_sub.id.id.id)),
+                            Property(String(attr.name.id), check_value(String(attr.value.id))))
+                    end
+                end
+            end
+        elseif stm isa ParserCombinator.Parsers.DOT.Node
             push!(subs.nodes, gvNode(get_id(nodes, String(stm.id.id.id)), String(stm.id.id.id), Properties()))
             for attr in stm.attrs
                 set!(subs.nodes, get_id(nodes, String(stm.id.id.id)),
                     Property(String(attr.name.id), check_value(String(attr.value.id))))
+                set!(subs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
             end
         elseif stm isa ParserCombinator.Parsers.DOT.Attribute
             set!(subs.graph_options, String(stm.name.id), check_value(String(stm.value.id)))
