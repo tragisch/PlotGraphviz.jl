@@ -10,16 +10,13 @@ ToDo: ERROR-Handling if not a suitable DOT-File is not implemented
 """
 function read_dot_file(filename::AbstractString)
 
-    # read_file
-    #my_graph = read_graph(filename)
-
     # open, read & preprocessing
     my_graph = preprocessing(filename)
 
     # use ParserCombinator.Parsers.DOT to convert to attributes
     graphs_parser_combinator = ParserCombinator.Parsers.DOT.parse_dot(my_graph)
 
-    # use first graph (toDo for more graphs)  !!! PROBLEM
+    # use first graph (toDo for more graphs)  !!! TODO
     if length(graphs_parser_combinator) == 1
         graph_parser_combinator = graphs_parser_combinator[1]
     else
@@ -30,6 +27,9 @@ function read_dot_file(filename::AbstractString)
 
     # set! attributes
     set_attributes!(attrs, graph_parser_combinator)
+
+    # postprocessing
+    postprocessing!(attrs)
 
     # get AbstractSimpleWeightedGraph
     g = get_AbstractSimpleWeightedGraph(attrs)
@@ -56,12 +56,32 @@ function preprocessing(filename)
     temp = ""
     multi_line_option = false
     subgraph = false
+
+    edge_options = 0
+    node_options = 0
+
     for line in lines
 
         # some small corrections:
         line = replace(line, "\t" => "")
         line = replace(line, " ]" => "]")
         line = replace(line, "[ " => "[")
+        line = replace(line, ";" => ";\n")
+        # line = replace(line, "node" => "\n node")
+        # line = replace(line, "edge" => "\n edge")
+        # line = replace(line, "graph" => "\n graph")
+
+        # identify node, edge subgraphs
+        if !isnothing(findfirst("node", line))
+            node_options += 1
+            if node_options == 2
+                line = "subgraph {\n" * line
+            elseif node_options > 2
+                node_options = 1
+                line = line * "\n}"
+            end
+        end
+
 
         # delete comments and empty lines:
         if !isnothing(findfirst("//", lstrip(line))) || !isnothing(findfirst("/*", lstrip(line))) || !isnothing(findfirst("*", lstrip(line))) || isempty(line)
@@ -86,6 +106,28 @@ function preprocessing(filename)
             # end
 
             optionend = findfirst("]", line)
+            if !isnothing(optionend)
+                if !(isempty(lstrip(line[(optionend.stop+1):end])))
+                    if (lstrip(line[optionend.stop+1:optionend.stop+1]) == "\"")
+                        optionend = findlast("]", line)
+                    end
+                end
+            end
+
+            # if there are node,egde or graph options:
+            if !isnothing(findfirst("node", line)) || !isnothing(findfirst("edge", line)) || !isnothing(findfirst("graph", line))
+                if !isnothing(optionend)
+                    if !(isempty(lstrip(line[(optionend.stop+1):end]))) && !(lstrip(line[(optionend.stop+1):end]) == ";") && !(lstrip(line[(optionend.stop+1):end]) == ";\n") && (isnothing(findfirst("[", line[(optionend.stop+1):end])))
+
+                        str = "subgraph {\n " * line * " \n}"
+                        push!(new_lines, str)
+                        continue
+                    else
+                        push!(new_lines, line)
+                        continue
+                    end
+                end
+            end
 
             # if multi-line syntax:
             if !isnothing(findfirst("[", line)) && isnothing(optionend)
@@ -101,11 +143,16 @@ function preprocessing(filename)
 
                     if (isnothing(findfirst("--", line))) && (isnothing(findfirst("->", line)))
 
-                        if !(isempty(lstrip(line[optionend.stop+1:end])))
+                        if !(isempty(lstrip(line[(optionend.stop+1):end]))) && !(lstrip(line[(optionend.stop+1):end]) == ";")
 
-                            if isnothing(findfirst("{", line[optionend.stop:end]))
+                            # @show lstrip(line[(optionend.stop+1):end])
+                            if !isnothing(findfirst("[", line[optionend.stop:end]))
+                                push!(new_lines, line)
+                                continue
 
-                                if !(lstrip(line[(optionend.stop+1):end]) == ";") || (isempty(lstrip(line[(optionend.stop+1):end])))
+                            elseif isnothing(findfirst("{", line[optionend.stop:end]))
+
+                                if (isempty(lstrip(line[(optionend.stop+1):end]))) # !(lstrip(line[(optionend.stop+1):end]) == ";") && 
                                     str = "subgraph {\n " * line * " \n}"
                                     push!(new_lines, str)
                                     continue
@@ -131,6 +178,7 @@ function preprocessing(filename)
                     temp = replace(temp, "\t" => "")
                     temp = replace(temp, " ]" => "]")
                     temp = replace(temp, "[ " => "[")
+                    temp = replace(temp, ";" => ";\n")
                     push!(new_lines, temp)
                     multi_line_option = false
                     temp = ""
@@ -145,13 +193,39 @@ function preprocessing(filename)
         end
     end
 
+    if node_options == 2
+        str = "\n}"
+        push!(new_lines, str)
+    end
+
     # #DEBUG:
-    # for line in new_lines
-    #     @show line
-    # end
+    #for line in new_lines
+    #    @show line
+    #end
 
 
     return Base.join(new_lines, "\n")
+end
+
+function postprocessing!(attrs)
+
+    # subgraph
+    for subg in attrs.subgraphs
+        for s_node in subg.nodes
+            sub_n_id = s_node.id
+            for node in attrs.nodes
+                if node.id == sub_n_id
+                    for prop in node.attributes
+                        has_key, pos = haskey(s_node.attributes, prop.key)
+                        if has_key
+                            rm!(node.attributes, prop.key)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
 end
 
 
@@ -240,28 +314,33 @@ function set_attributes!(attrs, g)
         elseif stm isa ParserCombinator.Parsers.DOT.SubGraph
             if !isnothing(stm.id) # use only cluster as subgraphs.
                 push!(attrs.subgraphs, gvSubGraph(String(stm.id.id)))
-                set_subgraph!(attrs.subgraphs[end], stm, attrs.nodes, g.directed)
             else
-                # all other subgraphs are lazy syntax
-                attributes = Properties()
-                for attr_sub in stm.stmts
-                    if attr_sub isa ParserCombinator.Parsers.DOT.NodeAttributes
-                        for attr in attr_sub.attrs
-                            set!(attributes, String(attr.name.id), check_value(String(attr.value.id)))
-                        end
-                    end
-                end
-
-                # for all node in subgraph
-                for attr_sub in stm.stmts
-                    if attr_sub isa ParserCombinator.Parsers.DOT.Node
-                        for single_attr in attributes
-                            set!(attrs.nodes, get_id(attrs.nodes, String(attr_sub.id.id.id)), single_attr)
-                        end
-                    end
-
-                end
+                push!(attrs.subgraphs, gvSubGraph(""))
             end
+            set_subgraph!(attrs.subgraphs[end], stm, attrs.nodes, g.directed)
+            # else
+
+            #     # all other subgraphs are lazy syntax
+            #     attributes = Properties()
+            #     for attr_sub in stm.stmts
+            #         @show attr_sub
+            #         if attr_sub isa ParserCombinator.Parsers.DOT.NodeAttributes
+            #             for attr in attr_sub.attrs
+            #                 set!(attributes, String(attr.name.id), check_value(String(attr.value.id)))
+            #             end
+            #         end
+            #     end
+
+            #     # for all node in subgraph
+            #     for attr_sub in stm.stmts
+            #         if attr_sub isa ParserCombinator.Parsers.DOT.Node
+            #             for single_attr in attributes
+            #                 set!(attrs.nodes, get_id(attrs.nodes, String(attr_sub.id.id.id)), single_attr)
+            #             end
+            #         end
+
+            #     end
+            # end
 
 
         end
@@ -271,12 +350,14 @@ end
 
 
 function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGraph, nodes::gvNodes, directed::Bool)
+    attrs3 = []
     for stm in g.stmts
+
         if stm isa ParserCombinator.Parsers.DOT.SubGraph
-            attrs3 = []
             for attr_sub in stm.stmts
 
                 if attr_sub isa ParserCombinator.Parsers.DOT.NodeAttributes
+                    attrs3 = []
                     for attr3 in attr_sub.attrs
                         set!(subs.node_options, String(attr3.name.id), check_value(String(attr3.value.id)))
                         push!(attrs3, attr3)
@@ -290,18 +371,33 @@ function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGrap
                     end
                 end
             end
+
         elseif stm isa ParserCombinator.Parsers.DOT.Node
             push!(subs.nodes, gvNode(get_id(nodes, String(stm.id.id.id)), String(stm.id.id.id), Properties()))
             for attr in stm.attrs
                 set!(subs.nodes, get_id(nodes, String(stm.id.id.id)),
                     Property(String(attr.name.id), check_value(String(attr.value.id))))
-                set!(subs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
             end
+
+            for attr in attrs3
+                set!(subs.nodes, get_id(nodes, String(stm.id.id.id)),
+                    Property(String(attr.name.id), check_value(String(attr.value.id))))
+            end
+
         elseif stm isa ParserCombinator.Parsers.DOT.Attribute
             set!(subs.graph_options, String(stm.name.id), check_value(String(stm.value.id)))
-        elseif stm isa ParserCombinator.Parsers.DOT.NodeAttributes
+
+        elseif stm isa ParserCombinator.Parsers.DOT.GraphAttributes
+
             for attr in stm.attrs
-                set!(subs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
+                set!(subs.graph_options, String(attr.name.id), check_value(String(attr.value.id)))
+            end
+
+        elseif stm isa ParserCombinator.Parsers.DOT.NodeAttributes
+            attrs3 = []
+            for attr in stm.attrs
+                # set!(subs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
+                push!(attrs3, attr)
             end
         elseif stm isa ParserCombinator.Parsers.DOT.EdgeAttributes
             for attr in stm.attrs
@@ -358,22 +454,11 @@ function get_AbstractSimpleWeightedGraph(attrs::GraphvizAttributes)
     end
 end
 
-const special_characters = ["+", "-", "&", " "]
 function check_value(value::T) where {T}
     if value isa String
         if (contains(value, "\"") == false)
             value = "\"" * value * "\""
         end
-        # if isempty(value)
-        #     value = "\" " * "\""
-        # else
-        #     for e in special_characters
-        #         if (contains(value, e) == true)
-        #             value = "\"" * value * "\""
-        #             break
-        #         end
-        #     end
-        # end
     end
     return value
 end

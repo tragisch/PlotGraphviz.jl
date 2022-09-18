@@ -57,7 +57,6 @@ function dot(g::AbstractSimpleWeightedGraph, stream::IO, attrs::GraphvizAttribut
         end
     end
 
-
     # write node 
     for n in attrs.nodes
         write(stream, " $(n.id) $(parse_attributes(n.attributes))];\n")
@@ -93,7 +92,7 @@ function color_nodes!(attrs::GraphvizAttributes, colors)
 end
 
 
-function color_path!(attrs::GraphvizAttributes, path, g::AbstractSimpleWeightedGraph; color = "red")
+function color_path!(attrs::GraphvizAttributes, path, g::AbstractSimpleWeightedGraph; color="red")
 
     for node = 1:nv(g)
         childs = Graphs.inneighbors(g, node)

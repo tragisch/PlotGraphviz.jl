@@ -36,5 +36,8 @@ Temporary Items
 */.ipynb_checkpoints/*
 
 # private application
+/modules/ShowGraphviz/
+/modules/ShowGraphviz/**
 /application    
 /application/**
+/test/data/**

@@ -1,0 +1,17 @@
+{
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#15217A",
+        "titleBar.activeBackground": "#1E2EAA",
+        "titleBar.activeForeground": "#FCFCFE"
+    },
+    "editor.fontFamily": "'JuliaMono'",
+    "editor.minimap.enabled": true,
+    "julia.showRuntimeDiagnostics": true,
+    "julia.editor": "code",
+    "editor.suggest.showInterfaces": true,
+    "editor.fontLigatures": true,
+    "julia.NumThreads": 12,
+    "settingsSync.ignoredSettings": [
+        "-julia.NumThreads"
+    ],
+}

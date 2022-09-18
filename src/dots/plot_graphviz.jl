@@ -14,13 +14,13 @@ Render graph `g` in iJulia using `Graphviz` engines.
 - (optional) `landscape = false`: if true > set `rankdir` to `LR`
 """
 function plot_graphviz(g::AbstractSimpleWeightedGraph;
-    edge_label::Bool = false,
-    colors = zeros(Int, SimpleWeightedGraphs.nv(g)),
-    path = [],
-    scale = 3.0,
-    landscape = false)
+    edge_label::Bool=false,
+    colors=zeros(Int, SimpleWeightedGraphs.nv(g)),
+    path=[],
+    scale=3.0,
+    landscape=false)
 
-    attrs = GraphvizAttributes(g; node_label = true, edge_label = edge_label)
+    attrs = GraphvizAttributes(g; node_label=true, edge_label=edge_label)
     set!(attrs.graph_options, "size", string(scale))
 
     (edge_label) ? set!(attrs.graph_options, "forcelabels", "true") : nothing
@@ -31,11 +31,11 @@ function plot_graphviz(g::AbstractSimpleWeightedGraph;
 end
 
 function plot_graphviz(tup::Tuple{SimpleWeightedDiGraph{Int64,Float64},GraphvizAttributes};
-    edge_label::Bool = false,
-    colors = zeros(Int, SimpleWeightedGraphs.nv(tup[1])),
-    path = [],
-    scale = 3.0,
-    landscape = false)
+    edge_label::Bool=false,
+    colors=zeros(Int, SimpleWeightedGraphs.nv(tup[1])),
+    path=[],
+    scale=3.0,
+    landscape=false)
 
     g = tup[1]
     attrs = tup[2]
@@ -63,9 +63,9 @@ Render graph `g` in **iJulia** using `Graphviz` engines.
 - (optional) `landscape = false`: if true > set `rankdir` to `LR`
 """
 function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
-    path = [],
-    colors = zeros(Int, nv(g)),
-    scale = 3.0
+    path=[],
+    colors=zeros(Int, nv(g)),
+    scale=3.0
 )
     if !isempty(val(attributes.plot_options, "weights"))
         (val(attributes.plot_options, "weights") == "true") ? set!(attributes.graph_options, "forcelabels", "true") : nothing
@@ -77,7 +77,7 @@ end
 
 # call ShowGraphviz
 function plot_graphviz(str::AbstractString)
-    ShowGraphviz.CONFIG.dot_option = `-q` # do not warn in iJulia!
+    #  ShowGraphviz.CONFIG.dot_option = `-q` # do not warn in iJulia!
     ShowGraphviz.DOT(str)
 end
 
