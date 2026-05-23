@@ -10,6 +10,23 @@ end
 
 to_graphviz(g::GraphvizGraph; kw...) = g
 
+function to_graphviz(g::AbstractSimpleWeightedGraph;
+    edge_label::Bool=false,
+    path=[],
+    colors=zeros(Int, nv(g)),
+    scale=3.0,
+    landscape=false,
+)
+    attrs = GraphvizAttributes(g)
+    return to_graphviz(g, attrs;
+        edge_label=edge_label,
+        path=path,
+        colors=colors,
+        scale=scale,
+        landscape=landscape,
+    )
+end
+
 function to_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
     edge_label::Bool=false,
     path=[],
