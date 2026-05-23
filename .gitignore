@@ -44,3 +44,7 @@ Temporary Items
 
 # local graph-analysis cache
 /.bgai-db/
+
+# keep local-only artifacts out of git
+/docs/plans/
+/Manifest.toml.julia1.10.bak
