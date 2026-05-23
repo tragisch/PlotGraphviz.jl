@@ -8,9 +8,12 @@ uebernehmen. Der reine Julia-Pfad ueber `Graphs.jl`, `GraphvizGraph`, DOT und
 und Notebook-Nutzung abzusichern.
 
 mGraph bleibt interessant als separates C-Projekt und spaeter eventuell als
-optionales Backend. Dafuer muesste aber zuerst ein reproduzierbarer Build, eine
-schmale C-ABI und ein belastbarer Nutzen gegenueber dem bestehenden
-Graphviz_jll-Pfad nachgewiesen werden.
+optionales Backend. Dabei ist mGraph nicht als Graphalgorithmen-Schicht zu
+bewerten, sondern als sehr schlanke Darstellungs- und Property-Schicht ueber der
+Graphviz-C-API. Graphalgorithmen sind fuer mGraph ein spaeteres Thema und
+sollten diese Entscheidung nicht treiben. Fuer PlotGraphviz muesste zuerst ein
+reproduzierbarer Build, eine schmale C-ABI und ein belastbarer Nutzen gegenueber
+dem bestehenden Graphviz_jll-Pfad nachgewiesen werden.
 
 ## Bewertete Optionen
 
@@ -48,6 +51,15 @@ parallel reifen, ohne PlotGraphviz-API, CI und Paketinstallation zu belasten.
 
 ## Beobachtungen zu mGraph
 
+Das Zielbild fuer mGraph hat zwei Ebenen:
+
+1. Eine sehr leane Darstellungsebene, die ueber die Graphviz-C-Schnittstelle
+   DOT, SVG und PNG erzeugt.
+2. Eine bequeme Property-Verwaltung fuer Graph-, Node- und Edge-Metadaten.
+
+Eine weitergehende Graphalgorithmen-Ebene ist bewusst spaeter einzuordnen. Fuer
+PlotGraphviz ist deshalb nur die Render-/Property-Ebene relevant.
+
 Die lokale mGraph-Implementierung bietet bereits:
 
 - C-Strukturen fuer `Graph`, `Node` und `Edge`.
@@ -55,13 +67,15 @@ Die lokale mGraph-Implementierung bietet bereits:
 - Konvertierung nach Graphviz-C-API (`Agraph_t`).
 - DOT-Lesen und DOT-Schreiben.
 - Rendern nach SVG und PNG ueber Graphviz.
+- Einen moeglichen fortgeschrittenen Darstellungs-Pfad ueber Raylib als POC.
 
 Wichtige Einschraenkungen:
 
 - Der Build ist aktuell nicht reproduzierbar durchgelaufen.
 - Das Bazel-Setup referenziert lokal `/opt/homebrew/opt/graphviz`.
 - Der Build zieht zusaetzlich `raylib`, obwohl PlotGraphviz fuer Rendering nur
-  Graphviz benoetigt.
+  Graphviz benoetigt. Fuer PlotGraphviz sollte Raylib daher hoechstens ein
+  optionaler POC-Pfad bleiben.
 - Der Testlauf von mGraph scheiterte an einem Registry-Checksum-Problem fuer
   `raylib`.
 - Node-Namen werden in der Graphviz-Konvertierung auf `n<ID>` normalisiert.
@@ -92,7 +106,7 @@ Ein lokaler Smoke-Test mit `savefig(..., g)` fuer einen kleinen
 ## Minimaler Spike fuer spaeter
 
 Wenn mGraph spaeter erneut bewertet wird, sollte der Spike bewusst klein
-bleiben:
+bleiben und nur die Render-/Property-Ebene pruefen:
 
 1. In mGraph eine schmale C-ABI bereitstellen:
    - Graph erzeugen und freigeben.
@@ -105,6 +119,12 @@ bleiben:
 4. Einen Graphen mit drei Knoten und zwei Kanten rendern.
 5. Ergebnis mit `to_dot` und `savefig` des reinen Julia-Pfads vergleichen.
 6. Build-Aufwand, Laufzeit, Attribute-Treue und Wartungskosten dokumentieren.
+
+Nicht Teil dieses Spikes:
+
+- Graphalgorithmen in mGraph.
+- Raylib als harte Abhaengigkeit fuer PlotGraphviz.
+- Umbau der PlotGraphviz-Public-API auf mGraph.
 
 ## Akzeptanzkriterien
 
@@ -122,6 +142,8 @@ mGraph sollte derzeit nicht die Grundlage fuer PlotGraphviz werden.
 
 Der naechste sinnvolle Schritt bleibt, PlotGraphviz auf dem bestehenden
 Julia/Graphviz_jll-Kern weiter zu verbessern. mGraph kann parallel als separates
-Projekt stabilisiert werden. Erst wenn mGraph reproduzierbar baut und ein
-kleiner FFI-Spike einen konkreten Vorteil zeigt, lohnt sich eine optionale
-Backend-Schicht in PlotGraphviz.
+Projekt stabilisiert werden, konkret als schlanke Render-/Property-Schicht.
+Erst wenn diese Ebene reproduzierbar baut und ein kleiner FFI-Spike einen
+konkreten Vorteil zeigt, lohnt sich eine optionale Backend-Schicht in
+PlotGraphviz. Graphalgorithmen sollten in dieser Entscheidung vorerst keine
+Rolle spielen.
