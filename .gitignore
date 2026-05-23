@@ -41,3 +41,6 @@ Temporary Items
 /application    
 /application/**
 /test/data/**
+
+# local graph-analysis cache
+/.bgai-db/

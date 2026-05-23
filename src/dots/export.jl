@@ -23,13 +23,13 @@ function write_dot_file(graph::AbstractSimpleWeightedGraph, filename::AbstractSt
     end
 
     open(filename, "w") do f
-        dot(graph, f, attributes)
+        pprint(f, legacy_graphviz_graph(graph, attributes))
     end
 end
 
 
 # internal function to get the dot representation of a graph as a string.
-function string_dot(graph::AbstractSimpleWeightedGraph, attributes=GraphvizAttributes(g), path=[], colors=zeros(Int, nv(g)))
+function string_dot(graph::AbstractSimpleWeightedGraph, attributes=GraphvizAttributes(graph), path=[], colors=zeros(Int, nv(graph)))
 
     if !isempty(path)
         color_path!(attributes, path, graph)
@@ -40,8 +40,8 @@ function string_dot(graph::AbstractSimpleWeightedGraph, attributes=GraphvizAttri
     end
 
     str = IOBuffer()
-    dot(graph, str, attributes)
-    String(take!(str)) #takebuf_string(str)
+    pprint(str, legacy_graphviz_graph(graph, attributes))
+    String(take!(str))
 end
 
 function save_dot_as(graph::AbstractSimpleWeightedGraph, filename::AbstractString;

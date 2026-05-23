@@ -1,11 +1,70 @@
 
+
+abstract type GraphvizPoperties end
+
+mutable struct Property{T}
+    key::String
+    value::T
+end
+
+
+const Properties = Vector{Property}
+
+# return val of attribute:
+function val(attributes::Properties, attribute::String)
+    if !isempty(attributes)
+        for a in attributes
+            if a.key == attribute
+                return a.value
+            end
+        end
+    end
+    return []
+end
+
+# return Tuple (bool, pos). bool=true if key exist in Attributes
+import Base.haskey
+function haskey(attributes::Properties, key::String)
+    if !isempty(attributes)
+        for i = 1:length(attributes)
+            if attributes[i].key == key
+                return true, i
+            end
+        end
+    end
+    return false, 0
+end
+
+# set val to attributeDict
+set!(attributes::Properties, prop::Property; override=true) = set!(attributes, prop.key, prop.value; override)
+
+function set!(attributes::Properties, key::String, value; override=true)
+    key_exist, idx = haskey(attributes, key)
+    if key_exist & (override == true)
+        attributes[idx].value = check_value(value)
+    else
+        push!(attributes, Property(key, check_value(value)))
+    end
+end
+
+# remove attribute of attributes
+rm!(attributes::Properties, prop::Property) = rm!(attributes, prop.key)
+
+function rm!(attributes::Properties, key::String)
+    key_exist, idx = haskey(attributes, key)
+    (key_exist) ? deleteat!(attributes, idx) : nothing
+end
+
+
+
+
 struct gvNode <: GraphvizPoperties
     id::Int64
     name::String
     attributes::Properties
 end
 
-gvNode(id::Int64) = gvNode(id, String(id), Properties())
+gvNode(id::Int64) = gvNode(id, string(id), Properties())
 
 const gvNodes = Vector{gvNode}
 
@@ -95,11 +154,12 @@ function GraphvizAttributes(graph::AbstractSimpleWeightedGraph; node_label::Bool
 
     nodes = [gvNode(i, "$i", Properties()) for i = 1:n]
 
-    edges = []
-    for i = 1:n, j = 1:n
-        if !(graph.weights[i, j] == 0)
-            push!(edges, gvEdge(i, j, [Property("xlabel", graph.weights[i, j])]))
-        end
+    edges = gvEdges()
+    for edge in Graphs.edges(graph)
+        from = Graphs.src(edge)
+        to = Graphs.dst(edge)
+        props = edge_label ? [Property("xlabel", graph.weights[from, to])] : Properties()
+        push!(edges, gvEdge(from, to, props))
     end
 
     gv_attr = GraphvizAttributes(plot_options, graph_options, node_options, edge_options, gvSubGraphs(), nodes, edges)
@@ -288,4 +348,3 @@ function get_node(nodes::gvNodes, id::Int)
     end
     return []
 end
-
