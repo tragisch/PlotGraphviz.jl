@@ -10,11 +10,16 @@ ToDo: ERROR-Handling if not a suitable DOT-File is not implemented
 """
 function read_dot_file(filename::AbstractString)
 
-    # open, read & preprocessing
-    my_graph = preprocessing(filename)
+    # Prefer parsing the raw DOT source to preserve structure.
+    # Fallback to legacy preprocessing for DOT variants that the parser
+    # cannot handle directly (e.g. `node [attrs] n1 n2;` style blocks).
+    my_graph = read_graph(filename)
 
-    # use ParserCombinator.Parsers.DOT to convert to attributes
-    graphs_parser_combinator = ParserCombinator.Parsers.DOT.parse_dot(my_graph)
+    graphs_parser_combinator = try
+        try_parse_dot_robust(my_graph, filename)
+    catch err
+        return read_dot_file_via_plain_fallback(my_graph, err)
+    end
 
     # use first graph (toDo for more graphs)  !!! TODO
     if length(graphs_parser_combinator) == 1
@@ -41,6 +46,152 @@ function read_dot_file(filename::AbstractString)
     end
 
     return g, attrs
+end
+
+function read_dot_file_via_plain_fallback(raw_dot::AbstractString, original_err)
+    directed = detect_dot_directed(raw_dot)
+    prog = directed ? "dot" : "neato"
+
+    io = IOBuffer()
+    try
+        run_graphviz(io, raw_dot; prog=prog, format="plain")
+    catch
+        rethrow(original_err)
+    end
+
+    plain = String(take!(io))
+    attrs = graphviz_attributes_from_plain(plain; directed=directed)
+    g = get_AbstractSimpleWeightedGraph(attrs)
+    return g, attrs
+end
+
+function detect_dot_directed(dot_text::AbstractString)
+    return !isnothing(match(r"(?im)^\s*(strict\s+)?digraph\b", dot_text))
+end
+
+function graphviz_attributes_from_plain(plain::AbstractString; directed::Bool)
+    ordered_names = String[]
+    seen_names = Set{String}()
+    raw_edges = Tuple{String,String}[]
+
+    for raw_line in split(plain, '\n')
+        line = strip(raw_line)
+        isempty(line) && continue
+
+        if startswith(line, "node ")
+            parts = split(line)
+            length(parts) >= 2 || continue
+            name = parts[2]
+            if !(name in seen_names)
+                push!(ordered_names, name)
+                push!(seen_names, name)
+            end
+            continue
+        end
+
+        if startswith(line, "edge ")
+            parts = split(line)
+            length(parts) >= 3 || continue
+            push!(raw_edges, (parts[2], parts[3]))
+        end
+    end
+
+    name_to_id = Dict{String,Int}(name => i for (i, name) in enumerate(ordered_names))
+
+    nodes = gvNodes()
+    for (i, name) in enumerate(ordered_names)
+        push!(nodes, gvNode(i, name, [Property("label", check_value(name))]))
+    end
+
+    edges = gvEdges()
+    for (from_name, to_name) in raw_edges
+        from_id = get(name_to_id, from_name, 0)
+        to_id = get(name_to_id, to_name, 0)
+        if from_id == 0 || to_id == 0
+            continue
+        end
+
+        push!(edges, gvEdge(from_id, to_id, Properties()))
+        if !directed
+            push!(edges, gvEdge(to_id, from_id, Properties()))
+        end
+    end
+
+    plot_options = [Property("directed", directed)]
+    graph_options = Properties()
+    node_options = Properties()
+    edge_options = Properties()
+    subgraphs = gvSubGraphs()
+
+    return GraphvizAttributes(plot_options, graph_options, node_options, edge_options, subgraphs, nodes, edges)
+end
+
+function try_parse_dot_robust(raw_dot::AbstractString, filename::AbstractString)
+    last_err = nothing
+
+    try
+        return ParserCombinator.Parsers.DOT.parse_dot(raw_dot)
+    catch err
+        last_err = err
+    end
+
+    # Some DOT files use compact node statements like
+    #   node [shape=box] a b c;
+    # which are valid DOT but not always accepted by ParserCombinator directly.
+    # Normalize this shape first, while preserving subgraph structure.
+    normalized = normalize_compact_node_statements(raw_dot)
+    try
+        return ParserCombinator.Parsers.DOT.parse_dot(normalized)
+    catch err
+        last_err = err
+    end
+
+    # Graphviz canonicalization is a robust fallback for parser edge-cases
+    # (charset oddities, exotic statement forms, implicit defaults).
+    try
+        canon = normalize_with_graphviz_canon(raw_dot)
+        return ParserCombinator.Parsers.DOT.parse_dot(canon)
+    catch err
+        last_err = err
+    end
+
+    # Final fallback: legacy preprocessing for additional loose DOT variants.
+    try
+        return ParserCombinator.Parsers.DOT.parse_dot(preprocessing(filename))
+    catch err
+        throw(last_err === nothing ? err : last_err)
+    end
+end
+
+function normalize_with_graphviz_canon(dot_text::AbstractString)
+    io = IOBuffer()
+    run_graphviz(io, dot_text; prog="dot", format="canon")
+    return String(take!(io))
+end
+
+function normalize_compact_node_statements(dot_text::AbstractString)
+    lines = split(dot_text, '\n'; keepempty=true)
+    out = String[]
+
+    for line in lines
+        m = match(r"^(\s*)node\s*(\[[^\]]+\])\s+([^;{}]+);\s*$", line)
+        if isnothing(m)
+            push!(out, line)
+            continue
+        end
+
+        indent = m.captures[1]
+        attr_block = m.captures[2]
+        nodes_part = m.captures[3]
+
+        push!(out, string(indent, "node ", attr_block, ";"))
+        for node_name in split(nodes_part, r"[\s,]+")
+            isempty(node_name) && continue
+            push!(out, string(indent, node_name, ";"))
+        end
+    end
+
+    return join(out, "\n")
 end
 
 function openfile(filename)
@@ -93,9 +244,6 @@ function preprocessing(filename)
     multi_line_option = false
     subgraph = false
 
-    edge_options = 0
-    node_options = 0
-
     for line in lines
 
         # some small corrections:
@@ -106,18 +254,6 @@ function preprocessing(filename)
         # line = replace(line, "node" => "\n node")
         # line = replace(line, "edge" => "\n edge")
         # line = replace(line, "graph" => "\n graph")
-
-        # identify node, edge subgraphs
-        if !isnothing(findfirst("node", line))
-            node_options += 1
-            if node_options == 2
-                line = "subgraph {\n" * line
-            elseif node_options > 2
-                node_options = 1
-                line = line * "\n}"
-            end
-        end
-
 
         # delete comments and empty lines:
         if !isnothing(findfirst("//", lstrip(line))) || !isnothing(findfirst("/*", lstrip(line))) || !isnothing(findfirst("*", lstrip(line))) || isempty(line)
@@ -229,11 +365,6 @@ function preprocessing(filename)
         end
     end
 
-    if node_options == 2
-        str = "\n}"
-        push!(new_lines, str)
-    end
-
     # #DEBUG:
     #for line in new_lines
     #    @show line
@@ -266,10 +397,43 @@ end
 
 
 function read_graph(filename)
-    f = open(filename, "r")
-    s = read(f, String)
-    close(f)
-    return s
+    bytes = read(filename)
+    return decode_dot_source(bytes)
+end
+
+function decode_dot_source(bytes::Vector{UInt8})
+    # Fast path for regular UTF-8 DOT files.
+    if isvalid(String, bytes)
+        return String(bytes)
+    end
+
+    # If the source advertises Latin-1, decode byte-for-byte into U+00xx.
+    # This preserves labels like in Graphviz's Latin1 sample files.
+    charset = detect_dot_charset(bytes)
+    if charset == "latin1"
+        return String(Char.(bytes))
+    end
+
+    # Fallback for other non-UTF-8 sources: preserve byte values instead of
+    # replacing them with unknown characters, so parsing/rendering keeps data.
+    return String(Char.(bytes))
+end
+
+function detect_dot_charset(bytes::Vector{UInt8})
+    lowered = lowercase_ascii(bytes)
+    text = String(Char.(lowered))
+
+    m = match(r"charset\s*=\s*\"?([a-z0-9_\-]+)\"?", text)
+    return isnothing(m) ? "" : String(m.captures[1])
+end
+
+function lowercase_ascii(bytes::Vector{UInt8})
+    out = similar(bytes)
+    for i in eachindex(bytes)
+        b = bytes[i]
+        out[i] = (0x41 <= b <= 0x5a) ? (b + 0x20) : b
+    end
+    return out
 end
 
 
@@ -307,7 +471,76 @@ function init_Attributes!(g)
 
 end
 
+function _push_unique!(items::Vector{String}, value::String)
+    if !(value in items)
+        push!(items, value)
+    end
+    return items
+end
+
+function _dot_endpoint_node_names(endpoint)
+    names = String[]
+
+    if endpoint isa ParserCombinator.Parsers.DOT.NodeID
+        if !isnothing(endpoint.id)
+            _push_unique!(names, String(endpoint.id.id))
+        end
+    elseif endpoint isa ParserCombinator.Parsers.DOT.Node
+        if !isnothing(endpoint.id)
+            _push_unique!(names, String(endpoint.id.id.id))
+        end
+    elseif endpoint isa ParserCombinator.Parsers.DOT.SubGraph
+        for stm in endpoint.stmts
+            if stm isa ParserCombinator.Parsers.DOT.Node
+                if !isnothing(stm.id)
+                    _push_unique!(names, String(stm.id.id.id))
+                end
+            elseif stm isa ParserCombinator.Parsers.DOT.SubGraph
+                for name in _dot_endpoint_node_names(stm)
+                    _push_unique!(names, name)
+                end
+            elseif stm isa ParserCombinator.Parsers.DOT.Edge
+                for edge_endpoint in stm.nodes
+                    for name in _dot_endpoint_node_names(edge_endpoint)
+                        _push_unique!(names, name)
+                    end
+                end
+            end
+        end
+    end
+
+    return names
+end
+
+function _edge_endpoint_ids(nodes::gvNodes, endpoint)
+    ids = Int[]
+    seen = Set{Int}()
+    for node_name in _dot_endpoint_node_names(endpoint)
+        node_id = get_id(nodes, node_name)
+        if (node_id > 0) && !(node_id in seen)
+            push!(ids, node_id)
+            push!(seen, node_id)
+        end
+    end
+    return ids
+end
+
+function _edge_endpoint_id_names(nodes::gvNodes, endpoint)
+    pairs = Tuple{Int,String}[]
+    seen = Set{Int}()
+    for node_name in _dot_endpoint_node_names(endpoint)
+        node_id = get_id(nodes, node_name)
+        if (node_id > 0) && !(node_id in seen)
+            push!(pairs, (node_id, node_name))
+            push!(seen, node_id)
+        end
+    end
+    return pairs
+end
+
 function set_attributes!(attrs, g)
+    active_node_attrs = Properties()
+    active_edge_attrs = Properties()
 
     for stm in g.stmts
 
@@ -319,28 +552,70 @@ function set_attributes!(attrs, g)
             end
         elseif stm isa ParserCombinator.Parsers.DOT.NodeAttributes
             for attr in stm.attrs
-                set!(attrs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
+                prop = Property(String(attr.name.id), check_value(String(attr.value.id)))
+                set!(attrs.node_options, prop)
+                set!(active_node_attrs, prop)
             end
         elseif stm isa ParserCombinator.Parsers.DOT.EdgeAttributes
             for attr in stm.attrs
-                set!(attrs.edge_options, String(attr.name.id), check_value(String(attr.value.id)))
+                prop = Property(String(attr.name.id), check_value(String(attr.value.id)))
+                set!(attrs.edge_options, prop)
+                set!(active_edge_attrs, prop)
             end
         elseif stm isa ParserCombinator.Parsers.DOT.Edge
 
+            for i = 1:(length(stm.nodes)-1)
+                from_ids = _edge_endpoint_ids(attrs.nodes, stm.nodes[i])
+                to_ids = _edge_endpoint_ids(attrs.nodes, stm.nodes[i+1])
+
+                if isempty(from_ids) || isempty(to_ids)
+                    continue
+                end
+
+                for from_id in from_ids
+                    for to_id in to_ids
+                        for prop in active_edge_attrs
+                            set!(attrs.edges, from_id, to_id,
+                                Property(prop.key, prop.value); override=true)
+
+                            if (g.directed == false)
+                                set!(attrs.edges, to_id, from_id,
+                                    Property(prop.key, prop.value); override=true)
+                            end
+                        end
+                    end
+                end
+            end
+
             if !(isempty(stm.attrs))
+                for i = 1:(length(stm.nodes)-1)
+                    from_ids = _edge_endpoint_ids(attrs.nodes, stm.nodes[i])
+                    to_ids = _edge_endpoint_ids(attrs.nodes, stm.nodes[i+1])
 
-                for attr in stm.attrs
-                    set!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[1].id.id)), get_id(attrs.nodes, String(stm.nodes[2].id.id)),
-                        Property(String(attr.name.id), check_value(String(attr.value.id))); override=true)
-
-                    if (g.directed == false)
-                        set!(attrs.edges, get_id(attrs.nodes, String(stm.nodes[2].id.id)), get_id(attrs.nodes, String(stm.nodes[1].id.id)),
-                            Property(String(attr.name.id), check_value(String(attr.value.id))); override=true)
+                    if isempty(from_ids) || isempty(to_ids)
+                        continue
                     end
 
+                    for from_id in from_ids
+                        for to_id in to_ids
+                            for attr in stm.attrs
+                                set!(attrs.edges, from_id, to_id,
+                                    Property(String(attr.name.id), check_value(String(attr.value.id))); override=true)
+
+                                if (g.directed == false)
+                                    set!(attrs.edges, to_id, from_id,
+                                        Property(String(attr.name.id), check_value(String(attr.value.id))); override=true)
+                                end
+                            end
+                        end
+                    end
                 end
             end
         elseif stm isa ParserCombinator.Parsers.DOT.Node
+            for prop in active_node_attrs
+                set!(attrs.nodes, get_id(attrs.nodes, String(stm.id.id.id)),
+                    Property(prop.key, prop.value))
+            end
             if !(isempty(stm.attrs))
                 for attr in stm.attrs
                     set!(attrs.nodes, get_id(attrs.nodes, String(stm.id.id.id)),
@@ -353,7 +628,9 @@ function set_attributes!(attrs, g)
             else
                 push!(attrs.subgraphs, gvSubGraph(""))
             end
-            set_subgraph!(attrs.subgraphs[end], stm, attrs.nodes, g.directed)
+            set_subgraph!(attrs.subgraphs[end], stm, attrs.nodes, g.directed;
+                inherited_node_attrs=active_node_attrs,
+                inherited_edge_attrs=active_edge_attrs)
             # else
 
             #     # all other subgraphs are lazy syntax
@@ -385,37 +662,41 @@ function set_attributes!(attrs, g)
 end
 
 
-function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGraph, nodes::gvNodes, directed::Bool)
-    attrs3 = []
+function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGraph, nodes::gvNodes, directed::Bool;
+    inherited_node_attrs::Properties=Properties(),
+    inherited_edge_attrs::Properties=Properties(),
+)
+    attrs3 = [Property(prop.key, prop.value) for prop in inherited_node_attrs]
+    edge_attrs3 = [Property(prop.key, prop.value) for prop in inherited_edge_attrs]
     for stm in g.stmts
 
         if stm isa ParserCombinator.Parsers.DOT.SubGraph
             for attr_sub in stm.stmts
 
                 if attr_sub isa ParserCombinator.Parsers.DOT.NodeAttributes
-                    attrs3 = []
+                    attrs3 = [Property(prop.key, prop.value) for prop in inherited_node_attrs]
                     for attr3 in attr_sub.attrs
                         set!(subs.node_options, String(attr3.name.id), check_value(String(attr3.value.id)))
-                        push!(attrs3, attr3)
+                        push!(attrs3, Property(String(attr3.name.id), check_value(String(attr3.value.id))))
                     end
 
                 elseif attr_sub isa ParserCombinator.Parsers.DOT.Node
                     push!(subs.nodes, gvNode(get_id(nodes, String(attr_sub.id.id.id)), String(attr_sub.id.id.id), Properties()))
                     for attr in attrs3
                         set!(subs.nodes, get_id(nodes, String(attr_sub.id.id.id)),
-                            Property(String(attr.name.id), check_value(String(attr.value.id))))
+                            Property(attr.key, attr.value))
                     end
                 end
             end
 
         elseif stm isa ParserCombinator.Parsers.DOT.Node
             push!(subs.nodes, gvNode(get_id(nodes, String(stm.id.id.id)), String(stm.id.id.id), Properties()))
-            for attr in stm.attrs
+            for attr in attrs3
                 set!(subs.nodes, get_id(nodes, String(stm.id.id.id)),
-                    Property(String(attr.name.id), check_value(String(attr.value.id))))
+                    Property(attr.key, attr.value))
             end
 
-            for attr in attrs3
+            for attr in stm.attrs
                 set!(subs.nodes, get_id(nodes, String(stm.id.id.id)),
                     Property(String(attr.name.id), check_value(String(attr.value.id))))
             end
@@ -430,30 +711,62 @@ function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGrap
             end
 
         elseif stm isa ParserCombinator.Parsers.DOT.NodeAttributes
-            attrs3 = []
+            attrs3 = [Property(prop.key, prop.value) for prop in inherited_node_attrs]
             for attr in stm.attrs
-                # set!(subs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
-                push!(attrs3, attr)
+                set!(subs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
+                push!(attrs3, Property(String(attr.name.id), check_value(String(attr.value.id))))
             end
         elseif stm isa ParserCombinator.Parsers.DOT.EdgeAttributes
+            edge_attrs3 = [Property(prop.key, prop.value) for prop in inherited_edge_attrs]
             for attr in stm.attrs
                 set!(subs.edge_options, String(attr.name.id), check_value(String(attr.value.id)))
+                push!(edge_attrs3, Property(String(attr.name.id), check_value(String(attr.value.id))))
             end
         elseif stm isa ParserCombinator.Parsers.DOT.Edge
             for i = 1:(length(stm.nodes)-1)
-                push!(subs.edges, gvEdge(get_id(nodes, String(stm.nodes[i].id.id)), get_id(nodes, String(stm.nodes[i+1].id.id)), Properties()))
+                from_pairs = _edge_endpoint_id_names(nodes, stm.nodes[i])
+                to_pairs = _edge_endpoint_id_names(nodes, stm.nodes[i+1])
 
-                if (directed == false)
-                    push!(subs.edges, gvEdge(get_id(nodes, String(stm.nodes[i+1].id.id)), get_id(nodes, String(stm.nodes[i].id.id)), Properties()))
+                if isempty(from_pairs) || isempty(to_pairs)
+                    continue
                 end
 
-                if !(isempty(stm.attrs))
-                    for attr in stm.attrs
-                        set!(subs.edges, get_id(nodes, String(stm.nodes[i].id.id)), get_id(nodes, String(stm.nodes[i+1].id.id)),
-                            Property(String(attr.name.id), check_value(String(attr.value.id))))
+                for (from_id, from_name) in from_pairs
+                    for (to_id, to_name) in to_pairs
+
+                        # Track implicit subgraph nodes that only appear in edge statements,
+                        # so subgraph node defaults and explicit node overrides can be rendered.
+                        if get_node(subs.nodes, from_id) == []
+                            push!(subs.nodes, gvNode(from_id, from_name, Properties()))
+                        end
+                        if get_node(subs.nodes, to_id) == []
+                            push!(subs.nodes, gvNode(to_id, to_name, Properties()))
+                        end
+
+                        push!(subs.edges, gvEdge(from_id, to_id, Properties()))
+
                         if (directed == false)
-                            set!(subs.edges, get_id(nodes, String(stm.nodes[i+1].id.id)), get_id(nodes, String(stm.nodes[i].id.id)),
-                                Property(String(attr.name.id), check_value(String(attr.value.id))))
+                            push!(subs.edges, gvEdge(to_id, from_id, Properties()))
+                        end
+
+                        for prop in edge_attrs3
+                            set!(subs.edges, from_id, to_id,
+                                Property(prop.key, prop.value))
+                            if (directed == false)
+                                set!(subs.edges, to_id, from_id,
+                                    Property(prop.key, prop.value))
+                            end
+                        end
+
+                        if !(isempty(stm.attrs))
+                            for attr in stm.attrs
+                                set!(subs.edges, from_id, to_id,
+                                    Property(String(attr.name.id), check_value(String(attr.value.id))))
+                                if (directed == false)
+                                    set!(subs.edges, to_id, from_id,
+                                        Property(String(attr.name.id), check_value(String(attr.value.id))))
+                                end
+                            end
                         end
                     end
                 end

@@ -137,7 +137,10 @@ end
 
 function unquote_dot_value(value)
     if value isa String && length(value) >= 2 && startswith(value, "\"") && endswith(value, "\"")
-        return value[2:end-1]
+        m = match(r"^\"(.*)\"$"s, value)
+        if !isnothing(m)
+            return string(m.captures[1])
+        end
     end
     return string(value)
 end
@@ -145,7 +148,26 @@ end
 function legacy_attrs(properties::Properties)
     attrs = Attributes()
     for prop in properties
-        attrs[Symbol(prop.key)] = unquote_dot_value(prop.value)
+        key = Symbol(prop.key)
+        value = unquote_dot_value(prop.value)
+
+        # Legacy compatibility: users often set `filled=true/false` as a node
+        # property. DOT expects this through `style="filled"` instead.
+        if key == :filled
+            v = lowercase(string(value))
+            if v in ("true", "1", "yes")
+                attrs[:style] = "filled"
+            elseif v in ("false", "0", "no")
+                # ignore `filled=false` so explicit fillcolor or inherited
+                # subgraph style can still control the rendering.
+                continue
+            else
+                attrs[key] = value
+            end
+            continue
+        end
+
+        attrs[key] = value
     end
     return attrs
 end
@@ -164,30 +186,102 @@ function legacy_node_name(attrs::GraphvizAttributes, id::Int)
     return name == 0 ? string(id) : string(name)
 end
 
+function quote_dot_identifier(name::AbstractString)
+    if occursin(r"^([A-Za-z\x80-\xff_][A-Za-z\x80-\xff_0-9]*|-?(\.[0-9]+|[0-9]+(\.[0-9]*)?))$", name)
+        return name
+    end
+    escaped = replace(name, "\\" => "\\\\", "\"" => "\\\"")
+    return "\"$escaped\""
+end
+
+legacy_node_id(attrs::GraphvizAttributes, id::Int) = quote_dot_identifier(legacy_node_name(attrs, id))
+
+function legacy_node_attrs(attrs::GraphvizAttributes, id::Int)
+    for node in attrs.nodes
+        if node.id == id
+            return legacy_attrs(node.attributes)
+        end
+    end
+    return Attributes()
+end
+
+function merge_attrs(base::Attributes, overrides::Attributes)
+    merged = copy(base)
+    for (key, value) in overrides
+        merged[key] = value
+    end
+    return merged
+end
+
+function _is_default_label_only(node::gvNode, attrs::GraphvizAttributes)
+    if length(node.attributes) != 1
+        return false
+    end
+    prop = node.attributes[1]
+    if prop.key != "label"
+        return false
+    end
+    return string(prop.value) == check_value(legacy_node_name(attrs, node.id))
+end
+
+function _emit_global_node(node::gvNode, attrs::GraphvizAttributes, subgraph_node_ids::Set{Int})
+    if !(node.id in subgraph_node_ids)
+        return true
+    end
+    # If a node is already present in a subgraph and only carries the synthetic
+    # default label, skip redundant global emission to preserve cluster ranking.
+    return !_is_default_label_only(node, attrs)
+end
+
 function legacy_graphviz_graph(graph::Graphs.AbstractGraph, attrs::GraphvizAttributes)
     directed = Graphs.is_directed(graph)
-    stmts = Statement[]
+    global_node_stmts = Statement[]
+    global_edge_stmts = Statement[]
+    subgraph_stmts_all = Statement[]
+
+    subgraph_edge_pairs = Set{Tuple{Int,Int}}()
+    subgraph_node_ids = Set{Int}()
+    for subgraph in attrs.subgraphs
+        for node in subgraph.nodes
+            push!(subgraph_node_ids, node.id)
+        end
+        for edge in subgraph.edges
+            push!(subgraph_edge_pairs, (edge.from, edge.to))
+        end
+    end
 
     for node in attrs.nodes
-        push!(stmts, Node(string(node.id), legacy_attrs(node.attributes)))
+        if _emit_global_node(node, attrs, subgraph_node_ids)
+            push!(global_node_stmts, Node(legacy_node_id(attrs, node.id), legacy_attrs(node.attributes)))
+        end
     end
 
     for edge in Graphs.edges(graph)
         from = Graphs.src(edge)
         to = Graphs.dst(edge)
-        push!(stmts, Edge([NodeID(string(from)), NodeID(string(to))], legacy_edge_attrs(attrs, from, to)))
+        if (from, to) in subgraph_edge_pairs
+            continue
+        end
+        from_name = legacy_node_id(attrs, from)
+        to_name = legacy_node_id(attrs, to)
+        push!(global_edge_stmts, Edge([NodeID(from_name), NodeID(to_name)], legacy_edge_attrs(attrs, from, to)))
     end
 
     for subgraph in attrs.subgraphs
         subgraph_stmts = Statement[]
+        subgraph_node_defaults = legacy_attrs(subgraph.node_options)
         for node in subgraph.nodes
-            push!(subgraph_stmts, Node(string(node.id), legacy_attrs(node.attributes)))
+            subgraph_node_attrs = merge_attrs(subgraph_node_defaults, legacy_attrs(node.attributes))
+            global_node_overrides = legacy_node_attrs(attrs, node.id)
+            push!(subgraph_stmts, Node(legacy_node_id(attrs, node.id), merge_attrs(subgraph_node_attrs, global_node_overrides)))
         end
         for edge in subgraph.edges
-            push!(subgraph_stmts, Edge([NodeID(string(edge.from)), NodeID(string(edge.to))], legacy_attrs(edge.attributes)))
+            from_name = legacy_node_id(attrs, edge.from)
+            to_name = legacy_node_id(attrs, edge.to)
+            push!(subgraph_stmts, Edge([NodeID(from_name), NodeID(to_name)], legacy_attrs(edge.attributes)))
         end
         push!(
-            stmts,
+            subgraph_stmts_all,
             Subgraph(
                 subgraph.type,
                 subgraph_stmts;
@@ -197,6 +291,11 @@ function legacy_graphviz_graph(graph::Graphs.AbstractGraph, attrs::GraphvizAttri
             ),
         )
     end
+
+    stmts = Statement[]
+    append!(stmts, subgraph_stmts_all)
+    append!(stmts, global_node_stmts)
+    append!(stmts, global_edge_stmts)
 
     return GraphvizGraph(;
         name="G",

@@ -106,28 +106,92 @@ Render graph `g` in iJulia using `Graphviz` engines.
 - (optional) `colors = zeros(Int, nv(mat))`: Color nodes using Brewer Color Scheme (max 9 colors).
 - (optional) `scale = 3.0`: Scale your plot
 - (optional) `landscape = false`: if true > set `rankdir` to `LR`
+- (optional) `prog = "dot"`: Graphviz engine (`dot`, `neato`, `fdp`, `sfdp`, `twopi`, `circo`)
+- (optional) `format = "svg"`: Display format (`svg` or `png`)
 """
-function plot_graphviz(g::Graphs.AbstractGraph; kw...)
-    plot_graphviz(to_graphviz(g; kw...))
+function plot_graphviz(g::Graphs.AbstractGraph; prog::String="dot", format::String="svg", kw...)
+    plot_graphviz(to_graphviz(g; kw...); prog=prog, format=format)
 end
 
-function plot_graphviz(tup::Tuple{<:AbstractSimpleWeightedGraph,GraphvizAttributes}; kw...)
-    plot_graphviz(tup[1], tup[2]; kw...)
+function plot_graphviz(tup::Tuple{<:AbstractSimpleWeightedGraph,GraphvizAttributes}; prog::String="dot", format::String="svg", kw...)
+    plot_graphviz(tup[1], tup[2]; prog=prog, format=format, kw...)
 end
 
-function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes; kw...)
-    plot_graphviz(to_graphviz(g, attributes; kw...))
+function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
+    prog::String="dot",
+    format::String="svg",
+    kw...,
+)
+    plot_graphviz(to_graphviz(g, attributes; kw...); prog=prog, format=format)
 end
 
 
-function plot_graphviz(g::GraphvizGraph)
-    display(g)
-end
-
-function plot_graphviz(dot::AbstractString)
+function plot_graphviz(g::GraphvizGraph; prog::String="dot", format::String="svg")
     io = IOBuffer()
-    run_graphviz(io, dot; format="svg")
-    display("image/svg+xml", String(take!(io)))
+    run_graphviz(io, g; prog=prog, format=format)
+    data = take!(io)
+
+    if format == "svg"
+        svg = String(data)
+        try
+            display("image/svg+xml", svg)
+        catch err
+            if err isa MethodError
+                # e.g. plain terminal/TextDisplay without SVG renderer
+                display("text/plain", "[SVG output: $(ncodeunits(svg)) bytes]")
+            else
+                rethrow(err)
+            end
+        end
+    elseif format == "png"
+        try
+            display("image/png", data)
+        catch err
+            if err isa MethodError
+                # e.g. plain terminal/TextDisplay without PNG renderer
+                display("text/plain", "[PNG output: $(length(data)) bytes]")
+            else
+                rethrow(err)
+            end
+        end
+    else
+        throw(ArgumentError("Unsupported format for plot_graphviz: $format. Use \"svg\" or \"png\"."))
+    end
+
+    return nothing
+end
+
+function plot_graphviz(dot::AbstractString; prog::String="dot", format::String="svg")
+    io = IOBuffer()
+    run_graphviz(io, dot; prog=prog, format=format)
+    data = take!(io)
+
+    if format == "svg"
+        svg = String(data)
+        try
+            display("image/svg+xml", svg)
+        catch err
+            if err isa MethodError
+                display("text/plain", "[SVG output: $(ncodeunits(svg)) bytes]")
+            else
+                rethrow(err)
+            end
+        end
+    elseif format == "png"
+        try
+            display("image/png", data)
+        catch err
+            if err isa MethodError
+                display("text/plain", "[PNG output: $(length(data)) bytes]")
+            else
+                rethrow(err)
+            end
+        end
+    else
+        throw(ArgumentError("Unsupported format for plot_graphviz: $format. Use \"svg\" or \"png\"."))
+    end
+
+    return nothing
 end
 
 
@@ -159,7 +223,8 @@ function run_graphviz(io::IO, graph::GraphvizGraph; prog::Union{String,Nothing}=
     fun = getfield(Graphviz_jll, Symbol(prog))
     prog = fun()
     open(`$prog -q -T$format`, io, write=true) do gv
-        pprint(gv, graph)
+        dot = sprint(pprint, graph)
+        write(gv, encoded_dot_bytes(dot))
     end
 end
 
@@ -169,8 +234,35 @@ function run_graphviz(io::IO, dot::AbstractString; prog::Union{String,Nothing}="
     fun = getfield(Graphviz_jll, Symbol(prog))
     prog = fun()
     open(`$prog -q -T$format`, io, write=true) do gv
-        write(gv, dot)
+        write(gv, encoded_dot_bytes(dot))
     end
+end
+
+function encoded_dot_bytes(dot::AbstractString)
+    charset = detect_dot_charset(dot)
+    if charset == "latin1"
+        return encode_latin1(dot)
+    end
+    return Vector{UInt8}(codeunits(dot))
+end
+
+function detect_dot_charset(dot::AbstractString)
+    m = match(r"(?i)charset\s*=\s*\"?([a-z0-9_\-]+)\"?", dot)
+    return isnothing(m) ? "" : lowercase(String(m.captures[1]))
+end
+
+function encode_latin1(text::AbstractString)
+    out = UInt8[]
+    for c in text
+        cp = UInt32(c)
+        if cp <= 0xff
+            push!(out, UInt8(cp))
+        else
+            # Fallback for non-Latin1 chars in a latin1-declared source.
+            push!(out, UInt8('?'))
+        end
+    end
+    return out
 end
 
 function run_graphviz(graph::GraphvizGraph; kw...)

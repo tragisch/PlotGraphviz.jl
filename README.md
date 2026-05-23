@@ -1,6 +1,8 @@
 # PlotGraphviz.jl
 
-- `PlotGraphviz.jl` tries to unleash the power of **Graphviz** in your IJulia environment. It is using [`ShowGraphviz.jl`](https://github.com/tkf/ShowGraphviz.jl), which derive various show methods from text/vnd.graphviz (https://graphviz.org). To parse dot files it uses [`ParserCombinator.jl`](https://github.com/andrewcooke/ParserCombinator.jl/blob/master/src/dot/DOT.jl).
+- `PlotGraphviz.jl` brings **Graphviz** rendering directly into IJulia and VS Code notebooks.
+
+- The modern core is built on `GraphvizGraph` and `Graphviz_jll` (no `ShowGraphviz` render path required). For dot-file parsing it uses [`ParserCombinator.jl`](https://github.com/andrewcooke/ParserCombinator.jl/blob/master/src/dot/DOT.jl).
 
 - `PlotGraphviz.jl` presents a simple interface for (nearly) all features of Graphviz. 
 
