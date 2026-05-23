@@ -37,7 +37,7 @@ function color_path!(attrs::GraphvizAttributes, path, g::AbstractSimpleWeightedG
     end
 end
 
-# helper function to reduce colors 
+# helper function to reduce colors
 function _reduce_colors!(components)
     n = length(components)
     cz = zeros(Int, n)

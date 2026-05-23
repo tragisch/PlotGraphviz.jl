@@ -1,9 +1,9 @@
-# using Catlab.jl version of Graphviz 
+# using Catlab.jl version of Graphviz
 # src/graphics/Graphviz.jl
 # small adaptions to fit for own package.
 
 # TODO: Vorteil Modul ermitteln
-# derived from 
+# derived from
 
 abstract type Graphviz end
 abstract type Statement <: Graphviz end

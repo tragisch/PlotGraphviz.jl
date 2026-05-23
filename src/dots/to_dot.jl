@@ -70,7 +70,3 @@ function dot(g::AbstractSimpleWeightedGraph, stream::IO, attrs::GraphvizAttribut
     write(stream, "}\n")
     return stream
 end
-
-
-
-

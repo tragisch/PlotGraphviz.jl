@@ -108,7 +108,7 @@ function preprocessing(filename)
                 end
             end
 
-            # in case of edge line: 
+            # in case of edge line:
             # if !(isnothing(findfirst("--", line))) || !(isnothing(findfirst("->", line)))
             #     push!(new_lines, line)
             #     continue
@@ -161,7 +161,7 @@ function preprocessing(filename)
 
                             elseif isnothing(findfirst("{", line[optionend.stop:end]))
 
-                                if (isempty(lstrip(line[(optionend.stop+1):end]))) # !(lstrip(line[(optionend.stop+1):end]) == ";") && 
+                                if (isempty(lstrip(line[(optionend.stop+1):end]))) # !(lstrip(line[(optionend.stop+1):end]) == ";") &&
                                     str = "subgraph {\n " * line * " \n}"
                                     push!(new_lines, str)
                                     continue
@@ -176,7 +176,6 @@ function preprocessing(filename)
                     end
                 end
             end
-
             # add line to new_lines
             push!(new_lines, line)
         else
@@ -215,5 +214,3 @@ function preprocessing(filename)
 
     return Base.join(new_lines, "\n")
 end
-
-

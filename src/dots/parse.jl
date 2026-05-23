@@ -237,5 +237,3 @@ pair(s::uSubGraph, n::uNodeID) = vcat([(x, n.id.id) for x in nodes(s)], edges_(s
 pair(s1::uSubGraph, s2::uSubGraph) =
     vcat(vec([(x, y) for x in nodes(s1), y in nodes(s2)]), edges_(s1), edges_(s2))
 edges_(e::uEdge) = reduce(vcat, [pair(a, b) for (a, b) in zip(e.nodes[1:end-1], e.nodes[2:end])])
-
-
