@@ -29,7 +29,7 @@ end
 
 
 # internal function to get the dot representation of a graph as a string.
-function string_dot(graph::AbstractSimpleWeightedGraph, attributes=GraphvizAttributes(g), path=[], colors=zeros(Int, nv(g)))
+function string_dot(graph::AbstractSimpleWeightedGraph, attributes=GraphvizAttributes(graph), path=[], colors=zeros(Int, nv(graph)))
 
     if !isempty(path)
         color_path!(attributes, path, graph)

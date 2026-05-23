@@ -1,0 +1,302 @@
+# using Catlab.jl version of Graphviz 
+# src/graphics/Graphviz.jl
+# small adaptions to fit for own package.
+
+# TODO: Vorteil Modul ermitteln
+# derived from 
+
+abstract type Graphviz end
+abstract type Statement <: Graphviz end
+
+struct Html
+    content::String
+end
+Base.print(io::IO, html::Html) = print(io, html.content)
+
+const AttributeValue = Union{String,Html}
+const Attributes = OrderedDict{Symbol,AttributeValue}
+
+as_attributes(attrs::Attributes) = attrs
+as_attributes(d::OrderedDict) = Attributes(Symbol(k) => d[k] for k in keys(d))
+as_attributes(d::AbstractDict) =
+    Attributes(Symbol(k) => d[k] for k in sort!(collect(keys(d))))
+
+
+### main struct GraphvizGraph
+
+Base.@kwdef struct GraphvizGraph <: Graphviz
+    name::String
+    strict::Bool
+    directed::Bool
+    stmts::Vector{Statement} = Statement[]
+    graph_attrs::Attributes = Attributes()
+    node_attrs::Attributes = Attributes()
+    edge_attrs::Attributes = Attributes()
+end
+
+GraphvizGraph(name::String, stmts::Vector{Statement}; kw...) =
+    GraphvizGraph(; name=name, strict=false, directed=false, stmts=stmts, kw...)
+GraphvizGraph(name::String, stmts::Vararg{Statement}; kw...) =
+    GraphvizGraph(; name=name, strict=false, directed=false, stmts=collect(stmts), kw...)
+GraphvizDigraph(name::String, stmts::Vector{Statement}; kw...) =
+    GraphvizGraph(; name=name, strict=false, directed=true, stmts=stmts, kw...)
+GraphvizDigraph(name::String, stmts::Vararg{Statement}; kw...) =
+    GraphvizGraph(; name=name, strict=false, directed=true, stmts=collect(stmts), kw...)
+
+
+### Statement Subgraph:
+Base.@kwdef struct Subgraph <: Statement
+    name::String = ""
+    stmts::Vector{Statement} = Statement[]
+    graph_attrs::Attributes = Attributes()
+    node_attrs::Attributes = Attributes()
+    edge_attrs::Attributes = Attributes()
+end
+
+Subgraph(stmts::Vector{Statement}; kw...) = Subgraph(; stmts=stmts, kw...)
+Subgraph(stmts::Vararg{Statement}; kw...) = Subgraph(; stmts=collect(stmts), kw...)
+Subgraph(name::String, stmts::Vector{Statement}; kw...) =
+    Subgraph(; name=name, stmts=stmts, kw...)
+Subgraph(name::String, stmts::Vararg{Statement}; kw...) =
+    Subgraph(; name=name, stmts=collect(stmts), kw...)
+
+### Statement Node:
+struct Node <: Statement
+    name::String
+    attrs::Attributes
+end
+Node(name::String, attrs::AbstractDict) = Node(name, as_attributes(attrs))
+Node(name::String; attrs...) = Node(name, attrs)
+
+@struct_hash_equal struct NodeID <: Graphviz
+    name::String
+    port::String
+    anchor::String
+    NodeID(name::String, port::String="", anchor::String="") = new(name, port, anchor)
+end
+
+@struct_hash_equal struct Edge <: Statement
+    path::Vector{NodeID}
+    attrs::Attributes
+end
+Edge(path::Vector{NodeID}, attrs::AbstractDict) = Edge(path, as_attributes(attrs))
+Edge(path::Vector{NodeID}; attrs...) = Edge(path, attrs)
+Edge(path::Vararg{NodeID}; attrs...) = Edge(collect(path), attrs)
+Edge(path::Vector{String}, attrs::AbstractDict) = Edge(map(NodeID, path), attrs)
+Edge(path::Vector{String}; attrs...) = Edge(map(NodeID, path), attrs)
+Edge(path::Vararg{String}; attrs...) = Edge(map(NodeID, collect(path)), attrs)
+
+Base.@kwdef struct Label <: Statement
+    labelloc::String = ""
+    label::String = ""
+end
+
+function filter_statements(gGraph::GraphvizGraph, type::Type)
+    [stmt for stmt in gGraph.stmts if stmt isa type]
+end
+function filter_statements(gGraph::GraphvizGraph, type::Type, attr::Symbol)
+    [stmt.attrs[attr] for stmt in gGraph.stmts
+     if stmt isa type && haskey(stmt.attrs, attr)]
+end
+
+
+# derived from Graphs.jl graph types
+function get_GraphvizGraph_Standard(graph::Graphs.AbstractGraph; node_label::Bool=true, edge_label::Bool=false)
+    directed = Graphs.is_directed(graph)
+    n = nv(graph)
+
+    graph_attrs = Attributes()
+    graph_attrs[:center] = "1,1"
+    graph_attrs[:overlay] = "scale"
+    graph_attrs[:concentrate] = "true"
+    graph_attrs[:layout] = (directed) ? "dot" : "neato"
+    graph_attrs[:size] = (n < 20) ? "3.0" : ((n < 100) ? "7.0" : "10.0")
+
+    node_attrs = Attributes()
+    node_attrs[:color] = "Turquoise"
+    node_attrs[:fontsize] = (node_label) ? ((n < 100) ? "7.0" : "5.0") : "1.0"
+    node_attrs[:width] = (node_label) ? "0.25" : "0.20"
+    node_attrs[:height] = (node_label) ? "0.25" : "0.20"
+    node_attrs[:fixedsize] = "true"
+    node_attrs[:shape] = (node_label) ? "circle" : "point"
+
+    edge_attrs = Attributes()
+    edge_attrs[:arrowsize] = "0.5"
+    edge_attrs[:arrowtype] = "normal"
+    edge_attrs[:fontsize] = (edge_label) ? "8.0" : "1.0"
+
+    stmts = Statement[]
+    for i in 1:n
+        push!(stmts, Node("$i"))
+    end
+
+    for edge in Graphs.edges(graph)
+        from = Graphs.src(edge)
+        to = Graphs.dst(edge)
+        push!(stmts, Edge([NodeID("$from"), NodeID("$to")]))
+    end
+
+    if directed
+        return GraphvizDigraph("G", stmts; graph_attrs=graph_attrs, edge_attrs=edge_attrs, node_attrs=node_attrs)
+    end
+
+    return GraphvizGraph("G", stmts; graph_attrs=graph_attrs, edge_attrs=edge_attrs, node_attrs=node_attrs)
+end
+
+function get_GraphvizGraph_Standard(graph::AbstractSimpleWeightedGraph; node_label::Bool=true, edge_label::Bool=false)
+    gGraph = get_GraphvizGraph_Standard(Graphs.SimpleGraph(graph); node_label, edge_label)
+
+    if edge_label
+        weighted_edges = Statement[]
+        for stmt in gGraph.stmts
+            if stmt isa Edge
+                from = parse(Int, stmt.path[1].name)
+                to = parse(Int, stmt.path[2].name)
+                push!(weighted_edges, Edge(stmt.path, Dict(:xlabel => string(graph.weights[from, to]))))
+            else
+                push!(weighted_edges, stmt)
+            end
+        end
+        return GraphvizGraph(;
+            name=gGraph.name,
+            strict=gGraph.strict,
+            directed=gGraph.directed,
+            stmts=weighted_edges,
+            graph_attrs=gGraph.graph_attrs,
+            node_attrs=gGraph.node_attrs,
+            edge_attrs=gGraph.edge_attrs,
+        )
+    end
+
+    return gGraph
+end
+
+function get_GraphvizGraph_Standard(graph::SimpleWeightedDiGraph; node_label::Bool=true, edge_label::Bool=false)
+    gGraph = get_GraphvizGraph_Standard(Graphs.SimpleDiGraph(graph); node_label, edge_label)
+
+    if edge_label
+        weighted_edges = Statement[]
+        for stmt in gGraph.stmts
+            if stmt isa Edge
+                from = parse(Int, stmt.path[1].name)
+                to = parse(Int, stmt.path[2].name)
+                push!(weighted_edges, Edge(stmt.path, Dict(:xlabel => string(graph.weights[from, to]))))
+            else
+                push!(weighted_edges, stmt)
+            end
+        end
+        return GraphvizGraph(;
+            name=gGraph.name,
+            strict=gGraph.strict,
+            directed=true,
+            stmts=weighted_edges,
+            graph_attrs=gGraph.graph_attrs,
+            node_attrs=gGraph.node_attrs,
+            edge_attrs=gGraph.edge_attrs,
+        )
+    end
+
+    return gGraph
+end
+
+
+### pprint
+pprint(expr::Graphviz) = pprint(stdout, expr)
+pprint(io::IO, expr::GraphvizGraph) = pprint(io, expr, 0)
+
+function pprint(io::IO, gGraph::GraphvizGraph, n::Int)
+    indent(io, n)
+    print(io, gGraph.directed ? "digraph " : "graph ")
+    print(io, gGraph.name)
+    println(io, " {")
+    pprint_attrs(io, gGraph.graph_attrs, n + 2; pre="graph", post=";\n")
+    pprint_attrs(io, gGraph.node_attrs, n + 2; pre="node", post=";\n")
+    pprint_attrs(io, gGraph.edge_attrs, n + 2; pre="edge", post=";\n")
+    for stmt in gGraph.stmts
+        pprint(io, stmt, n + 2, directed=gGraph.directed)
+        println(io)
+    end
+    indent(io, n)
+    println(io, "}")
+end
+
+function pprint(io::IO, subgraph::Subgraph, n::Int; directed::Bool=false)
+    indent(io, n)
+    if isempty(subgraph.name)
+        println(io, "{")
+    else
+        print(io, "subgraph ")
+        print(io, subgraph.name)
+        println(io, " {")
+    end
+    pprint_attrs(io, subgraph.graph_attrs, n + 2; pre="graph", post=";\n")
+    pprint_attrs(io, subgraph.node_attrs, n + 2; pre="node", post=";\n")
+    pprint_attrs(io, subgraph.edge_attrs, n + 2; pre="edge", post=";\n")
+    for stmt in subgraph.stmts
+        pprint(io, stmt, n + 2, directed=directed)
+        println(io)
+    end
+    indent(io, n)
+    print(io, "}")
+end
+
+function pprint(io::IO, node::Node, n::Int; directed::Bool=false)
+    indent(io, n)
+    print(io, node.name)
+    pprint_attrs(io, node.attrs)
+    print(io, ";")
+end
+
+function pprint(io::IO, node::NodeID, n::Int)
+    print(io, node.name)
+    if !isempty(node.port)
+        print(io, ":")
+        print(io, node.port)
+    end
+    if !isempty(node.anchor)
+        print(io, ":")
+        print(io, node.anchor)
+    end
+end
+
+function pprint(io::IO, edge::Edge, n::Int; directed::Bool=false)
+    indent(io, n)
+    for (i, node) in enumerate(edge.path)
+        if i > 1
+            print(io, directed ? " -> " : " -- ")
+        end
+        pprint(io, node, n)
+    end
+    pprint_attrs(io, edge.attrs)
+    print(io, ";")
+end
+
+function pprint_attrs(io::IO, attrs::Attributes, n::Int=0;
+    pre::String="", post::String="")
+    if !isempty(attrs)
+        indent(io, n)
+        print(io, pre)
+        print(io, " [")
+        for (i, (key, value)) in enumerate(attrs)
+            if (i > 1)
+                print(io, ",")
+            end
+            print(io, key)
+            print(io, "=")
+            print(io, value isa Html ? "<" : "\"")
+            print(io, value)
+            print(io, value isa Html ? ">" : "\"")
+        end
+        print(io, "]")
+        print(io, post)
+    end
+end
+
+function pprint(io::IO, lab::Label, n::Int; directed::Bool=false)
+    if !isempty(lab.labelloc)
+        print(io, "labelloc=\"$(lab.labelloc)\";")
+    end
+    print(io, "label=\"$(lab.label)\";")
+end
+
+indent(io::IO, n::Int) = print(io, " "^n)

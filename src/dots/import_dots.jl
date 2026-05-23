@@ -50,6 +50,42 @@ function openfile(filename)
     lines
 end
 
+function read_lines(filename::AbstractString)
+    lines = openfile(filename)
+    lines = delete_comments(lines)
+    lines = small_corrections(lines)
+
+    return Base.join(lines, "\n")
+end
+
+function parse_dot_file(my_graph)
+    graphs_parser_combinator = ParserCombinator.Parsers.DOT.parse_dot(my_graph)
+
+    return graphs_parser_combinator[1]
+end
+
+parse_my_dot(my_graph; debug=false) = ParserCombinator.Parsers.DOT.parse_dot(my_graph)
+
+function delete_comments(lines)
+    new_lines = []
+    for line in lines
+        if !isnothing(findfirst("//", lstrip(line))) || !isnothing(findfirst("/*", lstrip(line))) || !isnothing(findfirst("*", lstrip(line))) || isempty(line)
+            continue
+        end
+        push!(new_lines, line)
+    end
+    return new_lines
+end
+
+function small_corrections(lines)
+    return map(lines) do line
+        line = replace(line, "\t" => "")
+        line = replace(line, " ]" => "]")
+        line = replace(line, "[ " => "[")
+        replace(line, ";" => ";\n")
+    end
+end
+
 function preprocessing(filename)
     lines = openfile(filename)
     new_lines = []
@@ -477,6 +513,4 @@ function insert_at!(str::String, insert::String, at::Int)
 
     return new_string
 end
-
-
 
