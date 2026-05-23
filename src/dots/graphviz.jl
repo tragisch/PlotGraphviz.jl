@@ -99,31 +99,120 @@ function filter_statements(gGraph::GraphvizGraph, type::Type, attr::Symbol)
      if stmt isa type && haskey(stmt.attrs, attr)]
 end
 
+function default_graph_attrs(directed::Bool, n::Integer)
+    Attributes(
+        :center => "1,1",
+        :overlay => "scale",
+        :concentrate => "true",
+        :layout => directed ? "dot" : "neato",
+        :size => n < 20 ? "3.0" : (n < 100 ? "7.0" : "10.0"),
+    )
+end
+
+function default_node_attrs(node_label::Bool, n::Integer)
+    Attributes(
+        :color => "Turquoise",
+        :fontsize => node_label ? (n < 100 ? "7.0" : "5.0") : "1.0",
+        :width => node_label ? "0.25" : "0.20",
+        :height => node_label ? "0.25" : "0.20",
+        :fixedsize => "true",
+        :shape => node_label ? "circle" : "point",
+    )
+end
+
+function default_edge_attrs(edge_label::Bool)
+    Attributes(
+        :arrowsize => "0.5",
+        :arrowtype => "normal",
+        :fontsize => edge_label ? "8.0" : "1.0",
+    )
+end
+
+function graph_edge_attrs(graph::Graphs.AbstractGraph, from, to, edge_label::Bool)
+    edge_label || return Attributes()
+
+    weights = Graphs.weights(graph)
+    return Attributes(:xlabel => string(weights[from, to]))
+end
+
+function unquote_dot_value(value)
+    if value isa String && length(value) >= 2 && startswith(value, "\"") && endswith(value, "\"")
+        return value[2:end-1]
+    end
+    return string(value)
+end
+
+function legacy_attrs(properties::Properties)
+    attrs = Attributes()
+    for prop in properties
+        attrs[Symbol(prop.key)] = unquote_dot_value(prop.value)
+    end
+    return attrs
+end
+
+function legacy_edge_attrs(attrs::GraphvizAttributes, from::Int, to::Int)
+    for edge in attrs.edges
+        if edge.from == from && edge.to == to
+            return legacy_attrs(edge.attributes)
+        end
+    end
+    return Attributes()
+end
+
+function legacy_node_name(attrs::GraphvizAttributes, id::Int)
+    name = get_name(attrs.nodes, id)
+    return name == 0 ? string(id) : string(name)
+end
+
+function legacy_graphviz_graph(graph::Graphs.AbstractGraph, attrs::GraphvizAttributes)
+    directed = Graphs.is_directed(graph)
+    stmts = Statement[]
+
+    for node in attrs.nodes
+        push!(stmts, Node(string(node.id), legacy_attrs(node.attributes)))
+    end
+
+    for edge in Graphs.edges(graph)
+        from = Graphs.src(edge)
+        to = Graphs.dst(edge)
+        push!(stmts, Edge([NodeID(string(from)), NodeID(string(to))], legacy_edge_attrs(attrs, from, to)))
+    end
+
+    for subgraph in attrs.subgraphs
+        subgraph_stmts = Statement[]
+        for node in subgraph.nodes
+            push!(subgraph_stmts, Node(string(node.id), legacy_attrs(node.attributes)))
+        end
+        for edge in subgraph.edges
+            push!(subgraph_stmts, Edge([NodeID(string(edge.from)), NodeID(string(edge.to))], legacy_attrs(edge.attributes)))
+        end
+        push!(
+            stmts,
+            Subgraph(
+                subgraph.type,
+                subgraph_stmts;
+                graph_attrs=legacy_attrs(subgraph.graph_options),
+                node_attrs=legacy_attrs(subgraph.node_options),
+                edge_attrs=legacy_attrs(subgraph.edge_options),
+            ),
+        )
+    end
+
+    return GraphvizGraph(;
+        name="G",
+        strict=false,
+        directed=directed,
+        stmts=stmts,
+        graph_attrs=legacy_attrs(attrs.graph_options),
+        node_attrs=legacy_attrs(attrs.node_options),
+        edge_attrs=legacy_attrs(attrs.edge_options),
+    )
+end
 
 # derived from Graphs.jl graph types
 function get_GraphvizGraph_Standard(graph::Graphs.AbstractGraph; node_label::Bool=true, edge_label::Bool=false)
     directed = Graphs.is_directed(graph)
     n = nv(graph)
-
-    graph_attrs = Attributes()
-    graph_attrs[:center] = "1,1"
-    graph_attrs[:overlay] = "scale"
-    graph_attrs[:concentrate] = "true"
-    graph_attrs[:layout] = (directed) ? "dot" : "neato"
-    graph_attrs[:size] = (n < 20) ? "3.0" : ((n < 100) ? "7.0" : "10.0")
-
-    node_attrs = Attributes()
-    node_attrs[:color] = "Turquoise"
-    node_attrs[:fontsize] = (node_label) ? ((n < 100) ? "7.0" : "5.0") : "1.0"
-    node_attrs[:width] = (node_label) ? "0.25" : "0.20"
-    node_attrs[:height] = (node_label) ? "0.25" : "0.20"
-    node_attrs[:fixedsize] = "true"
-    node_attrs[:shape] = (node_label) ? "circle" : "point"
-
-    edge_attrs = Attributes()
-    edge_attrs[:arrowsize] = "0.5"
-    edge_attrs[:arrowtype] = "normal"
-    edge_attrs[:fontsize] = (edge_label) ? "8.0" : "1.0"
 
     stmts = Statement[]
     for i in 1:n
@@ -133,70 +222,18 @@ function get_GraphvizGraph_Standard(graph::Graphs.AbstractGraph; node_label::Boo
     for edge in Graphs.edges(graph)
         from = Graphs.src(edge)
         to = Graphs.dst(edge)
-        push!(stmts, Edge([NodeID("$from"), NodeID("$to")]))
+        push!(stmts, Edge([NodeID("$from"), NodeID("$to")], graph_edge_attrs(graph, from, to, edge_label)))
     end
+
+    graph_attrs = default_graph_attrs(directed, n)
+    node_attrs = default_node_attrs(node_label, n)
+    edge_attrs = default_edge_attrs(edge_label)
 
     if directed
         return GraphvizDigraph("G", stmts; graph_attrs=graph_attrs, edge_attrs=edge_attrs, node_attrs=node_attrs)
     end
 
     return GraphvizGraph("G", stmts; graph_attrs=graph_attrs, edge_attrs=edge_attrs, node_attrs=node_attrs)
-end
-
-function get_GraphvizGraph_Standard(graph::AbstractSimpleWeightedGraph; node_label::Bool=true, edge_label::Bool=false)
-    gGraph = get_GraphvizGraph_Standard(Graphs.SimpleGraph(graph); node_label, edge_label)
-
-    if edge_label
-        weighted_edges = Statement[]
-        for stmt in gGraph.stmts
-            if stmt isa Edge
-                from = parse(Int, stmt.path[1].name)
-                to = parse(Int, stmt.path[2].name)
-                push!(weighted_edges, Edge(stmt.path, Dict(:xlabel => string(graph.weights[from, to]))))
-            else
-                push!(weighted_edges, stmt)
-            end
-        end
-        return GraphvizGraph(;
-            name=gGraph.name,
-            strict=gGraph.strict,
-            directed=gGraph.directed,
-            stmts=weighted_edges,
-            graph_attrs=gGraph.graph_attrs,
-            node_attrs=gGraph.node_attrs,
-            edge_attrs=gGraph.edge_attrs,
-        )
-    end
-
-    return gGraph
-end
-
-function get_GraphvizGraph_Standard(graph::SimpleWeightedDiGraph; node_label::Bool=true, edge_label::Bool=false)
-    gGraph = get_GraphvizGraph_Standard(Graphs.SimpleDiGraph(graph); node_label, edge_label)
-
-    if edge_label
-        weighted_edges = Statement[]
-        for stmt in gGraph.stmts
-            if stmt isa Edge
-                from = parse(Int, stmt.path[1].name)
-                to = parse(Int, stmt.path[2].name)
-                push!(weighted_edges, Edge(stmt.path, Dict(:xlabel => string(graph.weights[from, to]))))
-            else
-                push!(weighted_edges, stmt)
-            end
-        end
-        return GraphvizGraph(;
-            name=gGraph.name,
-            strict=gGraph.strict,
-            directed=true,
-            stmts=weighted_edges,
-            graph_attrs=gGraph.graph_attrs,
-            node_attrs=gGraph.node_attrs,
-            edge_attrs=gGraph.edge_attrs,
-        )
-    end
-
-    return gGraph
 end
 
 

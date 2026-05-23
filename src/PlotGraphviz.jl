@@ -13,7 +13,8 @@ using Graphviz_jll
 
 export
     # visualization, import, export:
-    plot_graphviz, write_dot_file, read_dot_file,
+    to_graphviz, to_dot, plot_graphviz, savefig,
+    write_dot_file, read_dot_file,
 
     # modifier:
     set!, val, rm!,

@@ -1,4 +1,81 @@
 
+function to_graphviz(g::Graphs.AbstractGraph; edge_label::Bool=false, scale=3.0, landscape=false)
+    gGraph = get_GraphvizGraph_Standard(g; node_label=true, edge_label=edge_label)
+    gGraph.graph_attrs[:size] = string(scale)
+    if landscape
+        gGraph.graph_attrs[:rankdir] = "LR"
+    end
+    return gGraph
+end
+
+to_graphviz(g::GraphvizGraph; kw...) = g
+
+function to_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
+    edge_label::Bool=false,
+    path=[],
+    colors=zeros(Int, nv(g)),
+    scale=3.0,
+    landscape=false,
+)
+    attrs = deepcopy(attributes)
+
+    if edge_label || val(attrs.plot_options, "weights") == "true"
+        set!(attrs.graph_options, "forcelabels", "true")
+    end
+    set!(attrs.graph_options, "size", string(scale))
+    if landscape
+        set!(attrs.graph_options, "rankdir", "LR")
+    end
+    if !isempty(path)
+        color_path!(attrs, path, g)
+    end
+    if !is_all_zero(colors)
+        color_nodes!(attrs, colors)
+    end
+
+    return legacy_graphviz_graph(g, attrs)
+end
+
+function to_dot(g::GraphvizGraph)
+    sprint(pprint, g)
+end
+
+function to_dot(g::Graphs.AbstractGraph; kw...)
+    to_dot(to_graphviz(g; kw...))
+end
+
+function to_dot(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes; kw...)
+    to_dot(to_graphviz(g, attributes; kw...))
+end
+
+function _format_from_filename(filename::AbstractString)
+    ext = lowercase(splitext(filename)[2])
+    isempty(ext) && throw(ArgumentError("Cannot infer Graphviz output format from filename without extension"))
+    return ext[2:end]
+end
+
+function savefig(filename::AbstractString, x; format=nothing, prog="dot", kw...)
+    graph = to_graphviz(x; kw...)
+    output_format = isnothing(format) ? _format_from_filename(filename) : string(format)
+    open(filename, "w") do io
+        run_graphviz(io, graph; prog, format=output_format)
+    end
+    return filename
+end
+
+function savefig(filename::AbstractString, g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
+    format=nothing,
+    prog="dot",
+    kw...,
+)
+    graph = to_graphviz(g, attributes; kw...)
+    output_format = isnothing(format) ? _format_from_filename(filename) : string(format)
+    open(filename, "w") do io
+        run_graphviz(io, graph; prog, format=output_format)
+    end
+    return filename
+end
+
 """
     plot_graphviz(g, node_label= true, edge_label=false; path = zeros(Int, nv(mat))
 
@@ -13,59 +90,17 @@ Render graph `g` in iJulia using `Graphviz` engines.
 - (optional) `scale = 3.0`: Scale your plot
 - (optional) `landscape = false`: if true > set `rankdir` to `LR`
 """
-function plot_graphviz(g::Graphs.AbstractGraph; edge_label::Bool=false, scale=3.0, landscape=false)
-    gGraph = get_GraphvizGraph_Standard(g; node_label=true, edge_label=edge_label)
-    gGraph.graph_attrs[:size] = string(scale)
-    if landscape
-        gGraph.graph_attrs[:rankdir] = "LR"
-    end
-    plot_graphviz(gGraph)
+function plot_graphviz(g::Graphs.AbstractGraph; kw...)
+    plot_graphviz(to_graphviz(g; kw...))
 end
 
-# function plot_graphviz(tup::Tuple{SimpleWeightedDiGraph{Int64,Float64},GraphvizAttributes};
-#     edge_label::Bool=false,
-#     colors=zeros(Int, SimpleWeightedGraphs.nv(tup[1])),
-#     path=[],
-#     scale=3.0,
-#     landscape=false)
+function plot_graphviz(tup::Tuple{<:AbstractSimpleWeightedGraph,GraphvizAttributes}; kw...)
+    plot_graphviz(tup[1], tup[2]; kw...)
+end
 
-#     g = tup[1]
-#     attrs = tup[2]
-
-#     (edge_label) ? set!(attrs.graph_options, "forcelabels", "true") : set!(attrs.graph_options, "forcelabels", "false")
-#     (landscape) ? set!(attrs.graph_options, "rankdir", "LR") : set!(attrs.graph_options, "rankdir", "TB")
-
-#     plot_graphviz(g, attrs; path, colors, scale)
-
-# end
-
-
-# """
-#     plot_graphviz(g, attributes; path = zeros(Int, nv(mat)))
-
-
-# Render graph `g` in **iJulia** using `Graphviz` engines.
-
-# #### Arguments
-# - `g::AbstractSimpleWeightedGraph`: a graph representation to export 
-# - `attributes::AttributeDict`: Render with own set of plotting attributes (see http://www.graphviz.org/ for details)
-# - (optional) `path = []`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
-# - (optional) `colors = zeros(Int, nv(mat))`: Color nodes using Brewer Color Scheme (max 9 colors).
-# - (optional) `scale = 3.0`: Scale your plot
-# - (optional) `landscape = false`: if true > set `rankdir` to `LR`
-# """
-# function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
-#     path=[],
-#     colors=zeros(Int, nv(g)),
-#     scale=3.0
-# )
-#     if !isempty(val(attributes.plot_options, "weights"))
-#         (val(attributes.plot_options, "weights") == "true") ? set!(attributes.graph_options, "forcelabels", "true") : nothing
-#     end
-#     set!(attributes.graph_options, "size", string(scale))
-#     gv_dot = string_dot(g, attributes, path, colors)
-#     plot_graphviz(gv_dot)
-# end
+function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes; kw...)
+    plot_graphviz(to_graphviz(g, attributes; kw...))
+end
 
 
 function plot_graphviz(g::GraphvizGraph)
