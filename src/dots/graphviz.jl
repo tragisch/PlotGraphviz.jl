@@ -213,24 +213,60 @@ function merge_attrs(base::Attributes, overrides::Attributes)
     return merged
 end
 
-function _is_default_label_only(node::gvNode, attrs::GraphvizAttributes)
-    if length(node.attributes) != 1
-        return false
-    end
-    prop = node.attributes[1]
-    if prop.key != "label"
-        return false
-    end
-    return string(prop.value) == check_value(legacy_node_name(attrs, node.id))
+function _emit_global_node(node::gvNode, attrs::GraphvizAttributes, subgraph_node_ids::Set{Int})
+    # Nodes declared in subgraphs are emitted there (including merged global
+    # overrides), so emitting them again globally is redundant and can perturb
+    # layout/ranking due to default re-application.
+    return !(node.id in subgraph_node_ids)
 end
 
-function _emit_global_node(node::gvNode, attrs::GraphvizAttributes, subgraph_node_ids::Set{Int})
-    if !(node.id in subgraph_node_ids)
-        return true
+function _collect_subgraph_node_ids!(acc::Set{Int}, subgraph::gvSubGraph)
+    for node in subgraph.nodes
+        push!(acc, node.id)
     end
-    # If a node is already present in a subgraph and only carries the synthetic
-    # default label, skip redundant global emission to preserve cluster ranking.
-    return !_is_default_label_only(node, attrs)
+    for nested in subgraph.subgraphs
+        _collect_subgraph_node_ids!(acc, nested)
+    end
+    return acc
+end
+
+function _collect_subgraph_edge_pairs!(acc::Set{Tuple{Int,Int}}, subgraph::gvSubGraph)
+    for edge in subgraph.edges
+        push!(acc, (edge.from, edge.to))
+    end
+    for nested in subgraph.subgraphs
+        _collect_subgraph_edge_pairs!(acc, nested)
+    end
+    return acc
+end
+
+function legacy_subgraph_statement(subgraph::gvSubGraph, attrs::GraphvizAttributes)
+    subgraph_stmts = Statement[]
+    subgraph_node_defaults = legacy_attrs(subgraph.node_options)
+
+    for nested in subgraph.subgraphs
+        push!(subgraph_stmts, legacy_subgraph_statement(nested, attrs))
+    end
+
+    for node in subgraph.nodes
+        subgraph_node_attrs = merge_attrs(subgraph_node_defaults, legacy_attrs(node.attributes))
+        global_node_overrides = legacy_node_attrs(attrs, node.id)
+        push!(subgraph_stmts, Node(legacy_node_id(attrs, node.id), merge_attrs(subgraph_node_attrs, global_node_overrides)))
+    end
+
+    for edge in subgraph.edges
+        from_name = legacy_node_id(attrs, edge.from)
+        to_name = legacy_node_id(attrs, edge.to)
+        push!(subgraph_stmts, Edge([NodeID(from_name), NodeID(to_name)], legacy_attrs(edge.attributes)))
+    end
+
+    return Subgraph(
+        subgraph.type,
+        subgraph_stmts;
+        graph_attrs=legacy_attrs(subgraph.graph_options),
+        node_attrs=legacy_attrs(subgraph.node_options),
+        edge_attrs=legacy_attrs(subgraph.edge_options),
+    )
 end
 
 function legacy_graphviz_graph(graph::Graphs.AbstractGraph, attrs::GraphvizAttributes)
@@ -242,12 +278,8 @@ function legacy_graphviz_graph(graph::Graphs.AbstractGraph, attrs::GraphvizAttri
     subgraph_edge_pairs = Set{Tuple{Int,Int}}()
     subgraph_node_ids = Set{Int}()
     for subgraph in attrs.subgraphs
-        for node in subgraph.nodes
-            push!(subgraph_node_ids, node.id)
-        end
-        for edge in subgraph.edges
-            push!(subgraph_edge_pairs, (edge.from, edge.to))
-        end
+        _collect_subgraph_node_ids!(subgraph_node_ids, subgraph)
+        _collect_subgraph_edge_pairs!(subgraph_edge_pairs, subgraph)
     end
 
     for node in attrs.nodes
@@ -268,28 +300,7 @@ function legacy_graphviz_graph(graph::Graphs.AbstractGraph, attrs::GraphvizAttri
     end
 
     for subgraph in attrs.subgraphs
-        subgraph_stmts = Statement[]
-        subgraph_node_defaults = legacy_attrs(subgraph.node_options)
-        for node in subgraph.nodes
-            subgraph_node_attrs = merge_attrs(subgraph_node_defaults, legacy_attrs(node.attributes))
-            global_node_overrides = legacy_node_attrs(attrs, node.id)
-            push!(subgraph_stmts, Node(legacy_node_id(attrs, node.id), merge_attrs(subgraph_node_attrs, global_node_overrides)))
-        end
-        for edge in subgraph.edges
-            from_name = legacy_node_id(attrs, edge.from)
-            to_name = legacy_node_id(attrs, edge.to)
-            push!(subgraph_stmts, Edge([NodeID(from_name), NodeID(to_name)], legacy_attrs(edge.attributes)))
-        end
-        push!(
-            subgraph_stmts_all,
-            Subgraph(
-                subgraph.type,
-                subgraph_stmts;
-                graph_attrs=legacy_attrs(subgraph.graph_options),
-                node_attrs=legacy_attrs(subgraph.node_options),
-                edge_attrs=legacy_attrs(subgraph.edge_options),
-            ),
-        )
+        push!(subgraph_stmts_all, legacy_subgraph_statement(subgraph, attrs))
     end
 
     stmts = Statement[]

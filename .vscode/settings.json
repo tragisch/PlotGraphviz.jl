@@ -14,4 +14,5 @@
     "settingsSync.ignoredSettings": [
         "-julia.NumThreads"
     ],
+    "julia.environmentPath": "/Users/uwe/.julia/environments/v1.12",
 }

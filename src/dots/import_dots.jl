@@ -375,24 +375,43 @@ function preprocessing(filename)
 end
 
 function postprocessing!(attrs)
+    all_subgraphs = gvSubGraphs()
+    _collect_subgraphs!(all_subgraphs, attrs.subgraphs)
 
     # subgraph
-    for subg in attrs.subgraphs
+    for subg in all_subgraphs
         for s_node in subg.nodes
             sub_n_id = s_node.id
             for node in attrs.nodes
                 if node.id == sub_n_id
+                    keys_to_remove = String[]
                     for prop in node.attributes
                         has_key, pos = haskey(s_node.attributes, prop.key)
-                        if has_key
-                            rm!(node.attributes, prop.key)
+                        synthetic_default_label =
+                            (prop.key == "label") && (prop.value == check_value(node.name))
+
+                        same_value_in_subgraph = has_key && (s_node.attributes[pos].value == prop.value)
+                        if same_value_in_subgraph || synthetic_default_label
+                            push!(keys_to_remove, prop.key)
                         end
+                    end
+
+                    for key in keys_to_remove
+                        rm!(node.attributes, key)
                     end
                 end
             end
         end
     end
 
+end
+
+function _collect_subgraphs!(all_subgraphs::gvSubGraphs, subgraphs::gvSubGraphs)
+    for subgraph in subgraphs
+        push!(all_subgraphs, subgraph)
+        _collect_subgraphs!(all_subgraphs, subgraph.subgraphs)
+    end
+    return all_subgraphs
 end
 
 
@@ -538,9 +557,114 @@ function _edge_endpoint_id_names(nodes::gvNodes, endpoint)
     return pairs
 end
 
+function _dot_id_to_string(id_obj)
+    if isnothing(id_obj)
+        return ""
+    elseif id_obj isa String
+        return id_obj
+    elseif hasproperty(id_obj, :id)
+        return _dot_id_to_string(getproperty(id_obj, :id))
+    end
+    return string(id_obj)
+end
+
+function _dot_node_port_string(endpoint::ParserCombinator.Parsers.DOT.NodeID)
+    if isnothing(endpoint.port)
+        return ""
+    end
+
+    port_id = _dot_id_to_string(endpoint.port.id)
+    point = _dot_id_to_string(endpoint.port.point)
+
+    if isempty(point)
+        return port_id
+    elseif isempty(port_id)
+        return point
+    else
+        return string(port_id, ":", point)
+    end
+end
+
+function _edge_endpoint_id_name_ports(nodes::gvNodes, endpoint)
+    triples = Tuple{Int,String,String}[]
+    seen = Set{Tuple{Int,String}}()
+
+    if endpoint isa ParserCombinator.Parsers.DOT.NodeID
+        node_name = _dot_id_to_string(endpoint.id)
+        node_id = get_id(nodes, node_name)
+        port = _dot_node_port_string(endpoint)
+        marker = (node_id, port)
+        if (node_id > 0) && !(marker in seen)
+            push!(triples, (node_id, node_name, port))
+            push!(seen, marker)
+        end
+        return triples
+    end
+
+    for (node_id, node_name) in _edge_endpoint_id_names(nodes, endpoint)
+        marker = (node_id, "")
+        if !(marker in seen)
+            push!(triples, (node_id, node_name, ""))
+            push!(seen, marker)
+        end
+    end
+
+    return triples
+end
+
+function _is_synthetic_default_node(node::gvNode)
+    if length(node.attributes) != 1
+        return false
+    end
+    return (node.attributes[1].key == "label") && (node.attributes[1].value == check_value(node.name))
+end
+
+function _collect_seen_subgraph_node_ids!(acc::Set{Int}, subgraph::ParserCombinator.Parsers.DOT.SubGraph, nodes::gvNodes)
+    for stm in subgraph.stmts
+        if stm isa ParserCombinator.Parsers.DOT.Node
+            if !isnothing(stm.id)
+                node_id = get_id(nodes, String(stm.id.id.id))
+                (node_id > 0) && push!(acc, node_id)
+            end
+        elseif stm isa ParserCombinator.Parsers.DOT.SubGraph
+            _collect_seen_subgraph_node_ids!(acc, stm, nodes)
+        end
+    end
+    return acc
+end
+
+function _apply_missing_node_defaults!(
+    nodes::gvNodes,
+    node_ids::Set{Int},
+    defaults::Properties;
+    protected_node_ids::Set{Int}=Set{Int}(),
+)
+    isempty(defaults) && return
+
+    for node_id in node_ids
+        if node_id in protected_node_ids
+            continue
+        end
+
+        node = get_node(nodes, node_id)
+        node == [] && continue
+        _is_synthetic_default_node(node) || continue
+
+        for prop in defaults
+            has_key, _ = haskey(node.attributes, prop.key)
+            if !has_key
+                set!(nodes, node_id, Property(prop.key, prop.value))
+            end
+        end
+    end
+end
+
 function set_attributes!(attrs, g)
     active_node_attrs = Properties()
     active_edge_attrs = Properties()
+    seen_edge_statement = false
+    edge_defaults_safe_to_emit = true
+    seen_subgraph_node_ids = Set{Int}()
 
     for stm in g.stmts
 
@@ -557,23 +681,42 @@ function set_attributes!(attrs, g)
                 set!(active_node_attrs, prop)
             end
         elseif stm isa ParserCombinator.Parsers.DOT.EdgeAttributes
+            if seen_edge_statement
+                edge_defaults_safe_to_emit = false
+                empty!(attrs.edge_options)
+            end
+
             for attr in stm.attrs
                 prop = Property(String(attr.name.id), check_value(String(attr.value.id)))
-                set!(attrs.edge_options, prop)
+                if edge_defaults_safe_to_emit
+                    set!(attrs.edge_options, prop)
+                end
                 set!(active_edge_attrs, prop)
             end
         elseif stm isa ParserCombinator.Parsers.DOT.Edge
+            seen_edge_statement = true
+            endpoint_node_ids = Set{Int}()
 
             for i = 1:(length(stm.nodes)-1)
-                from_ids = _edge_endpoint_ids(attrs.nodes, stm.nodes[i])
-                to_ids = _edge_endpoint_ids(attrs.nodes, stm.nodes[i+1])
+                from_nodes = _edge_endpoint_id_name_ports(attrs.nodes, stm.nodes[i])
+                to_nodes = _edge_endpoint_id_name_ports(attrs.nodes, stm.nodes[i+1])
 
-                if isempty(from_ids) || isempty(to_ids)
+                if isempty(from_nodes) || isempty(to_nodes)
                     continue
                 end
 
-                for from_id in from_ids
-                    for to_id in to_ids
+                for (from_id, _, _) in from_nodes
+                    push!(endpoint_node_ids, from_id)
+                end
+                for (to_id, _, _) in to_nodes
+                    push!(endpoint_node_ids, to_id)
+                end
+
+                _apply_missing_node_defaults!(attrs.nodes, endpoint_node_ids, active_node_attrs;
+                    protected_node_ids=seen_subgraph_node_ids)
+
+                for (from_id, _, from_port) in from_nodes
+                    for (to_id, _, to_port) in to_nodes
                         for prop in active_edge_attrs
                             set!(attrs.edges, from_id, to_id,
                                 Property(prop.key, prop.value); override=true)
@@ -583,21 +726,34 @@ function set_attributes!(attrs, g)
                                     Property(prop.key, prop.value); override=true)
                             end
                         end
+
+                        if !isempty(from_port)
+                            set!(attrs.edges, from_id, to_id, Property("tailport", check_value(from_port)); override=true)
+                            if (g.directed == false)
+                                set!(attrs.edges, to_id, from_id, Property("headport", check_value(from_port)); override=true)
+                            end
+                        end
+                        if !isempty(to_port)
+                            set!(attrs.edges, from_id, to_id, Property("headport", check_value(to_port)); override=true)
+                            if (g.directed == false)
+                                set!(attrs.edges, to_id, from_id, Property("tailport", check_value(to_port)); override=true)
+                            end
+                        end
                     end
                 end
             end
 
             if !(isempty(stm.attrs))
                 for i = 1:(length(stm.nodes)-1)
-                    from_ids = _edge_endpoint_ids(attrs.nodes, stm.nodes[i])
-                    to_ids = _edge_endpoint_ids(attrs.nodes, stm.nodes[i+1])
+                    from_nodes = _edge_endpoint_id_name_ports(attrs.nodes, stm.nodes[i])
+                    to_nodes = _edge_endpoint_id_name_ports(attrs.nodes, stm.nodes[i+1])
 
-                    if isempty(from_ids) || isempty(to_ids)
+                    if isempty(from_nodes) || isempty(to_nodes)
                         continue
                     end
 
-                    for from_id in from_ids
-                        for to_id in to_ids
+                    for (from_id, _, from_port) in from_nodes
+                        for (to_id, _, to_port) in to_nodes
                             for attr in stm.attrs
                                 set!(attrs.edges, from_id, to_id,
                                     Property(String(attr.name.id), check_value(String(attr.value.id))); override=true)
@@ -605,6 +761,19 @@ function set_attributes!(attrs, g)
                                 if (g.directed == false)
                                     set!(attrs.edges, to_id, from_id,
                                         Property(String(attr.name.id), check_value(String(attr.value.id))); override=true)
+                                end
+                            end
+
+                            if !isempty(from_port)
+                                set!(attrs.edges, from_id, to_id, Property("tailport", check_value(from_port)); override=true)
+                                if (g.directed == false)
+                                    set!(attrs.edges, to_id, from_id, Property("headport", check_value(from_port)); override=true)
+                                end
+                            end
+                            if !isempty(to_port)
+                                set!(attrs.edges, from_id, to_id, Property("headport", check_value(to_port)); override=true)
+                                if (g.directed == false)
+                                    set!(attrs.edges, to_id, from_id, Property("tailport", check_value(to_port)); override=true)
                                 end
                             end
                         end
@@ -623,6 +792,8 @@ function set_attributes!(attrs, g)
                 end
             end
         elseif stm isa ParserCombinator.Parsers.DOT.SubGraph
+            _collect_seen_subgraph_node_ids!(seen_subgraph_node_ids, stm, attrs.nodes)
+
             if !isnothing(stm.id) # use only cluster as subgraphs.
                 push!(attrs.subgraphs, gvSubGraph(String(stm.id.id)))
             else
@@ -666,28 +837,23 @@ function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGrap
     inherited_node_attrs::Properties=Properties(),
     inherited_edge_attrs::Properties=Properties(),
 )
-    attrs3 = [Property(prop.key, prop.value) for prop in inherited_node_attrs]
-    edge_attrs3 = [Property(prop.key, prop.value) for prop in inherited_edge_attrs]
+    attrs3 = Properties()
+    for prop in inherited_node_attrs
+        push!(attrs3, Property(prop.key, prop.value))
+    end
+
+    edge_attrs3 = Properties()
+    for prop in inherited_edge_attrs
+        push!(edge_attrs3, Property(prop.key, prop.value))
+    end
     for stm in g.stmts
 
         if stm isa ParserCombinator.Parsers.DOT.SubGraph
-            for attr_sub in stm.stmts
-
-                if attr_sub isa ParserCombinator.Parsers.DOT.NodeAttributes
-                    attrs3 = [Property(prop.key, prop.value) for prop in inherited_node_attrs]
-                    for attr3 in attr_sub.attrs
-                        set!(subs.node_options, String(attr3.name.id), check_value(String(attr3.value.id)))
-                        push!(attrs3, Property(String(attr3.name.id), check_value(String(attr3.value.id))))
-                    end
-
-                elseif attr_sub isa ParserCombinator.Parsers.DOT.Node
-                    push!(subs.nodes, gvNode(get_id(nodes, String(attr_sub.id.id.id)), String(attr_sub.id.id.id), Properties()))
-                    for attr in attrs3
-                        set!(subs.nodes, get_id(nodes, String(attr_sub.id.id.id)),
-                            Property(attr.key, attr.value))
-                    end
-                end
-            end
+            nested_subgraph = isnothing(stm.id) ? gvSubGraph("") : gvSubGraph(String(stm.id.id))
+            push!(subs.subgraphs, nested_subgraph)
+            set_subgraph!(nested_subgraph, stm, nodes, directed;
+                inherited_node_attrs=attrs3,
+                inherited_edge_attrs=edge_attrs3)
 
         elseif stm isa ParserCombinator.Parsers.DOT.Node
             push!(subs.nodes, gvNode(get_id(nodes, String(stm.id.id.id)), String(stm.id.id.id), Properties()))
@@ -711,28 +877,34 @@ function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGrap
             end
 
         elseif stm isa ParserCombinator.Parsers.DOT.NodeAttributes
-            attrs3 = [Property(prop.key, prop.value) for prop in inherited_node_attrs]
+            attrs3 = Properties()
+            for prop in inherited_node_attrs
+                push!(attrs3, Property(prop.key, prop.value))
+            end
             for attr in stm.attrs
                 set!(subs.node_options, String(attr.name.id), check_value(String(attr.value.id)))
                 push!(attrs3, Property(String(attr.name.id), check_value(String(attr.value.id))))
             end
         elseif stm isa ParserCombinator.Parsers.DOT.EdgeAttributes
-            edge_attrs3 = [Property(prop.key, prop.value) for prop in inherited_edge_attrs]
+            edge_attrs3 = Properties()
+            for prop in inherited_edge_attrs
+                push!(edge_attrs3, Property(prop.key, prop.value))
+            end
             for attr in stm.attrs
                 set!(subs.edge_options, String(attr.name.id), check_value(String(attr.value.id)))
                 push!(edge_attrs3, Property(String(attr.name.id), check_value(String(attr.value.id))))
             end
         elseif stm isa ParserCombinator.Parsers.DOT.Edge
             for i = 1:(length(stm.nodes)-1)
-                from_pairs = _edge_endpoint_id_names(nodes, stm.nodes[i])
-                to_pairs = _edge_endpoint_id_names(nodes, stm.nodes[i+1])
+                from_pairs = _edge_endpoint_id_name_ports(nodes, stm.nodes[i])
+                to_pairs = _edge_endpoint_id_name_ports(nodes, stm.nodes[i+1])
 
                 if isempty(from_pairs) || isempty(to_pairs)
                     continue
                 end
 
-                for (from_id, from_name) in from_pairs
-                    for (to_id, to_name) in to_pairs
+                for (from_id, from_name, from_port) in from_pairs
+                    for (to_id, to_name, to_port) in to_pairs
 
                         # Track implicit subgraph nodes that only appear in edge statements,
                         # so subgraph node defaults and explicit node overrides can be rendered.
@@ -755,6 +927,19 @@ function set_subgraph!(subs::gvSubGraph, g::ParserCombinator.Parsers.DOT.SubGrap
                             if (directed == false)
                                 set!(subs.edges, to_id, from_id,
                                     Property(prop.key, prop.value))
+                            end
+                        end
+
+                        if !isempty(from_port)
+                            set!(subs.edges, from_id, to_id, Property("tailport", check_value(from_port)))
+                            if (directed == false)
+                                set!(subs.edges, to_id, from_id, Property("headport", check_value(from_port)))
+                            end
+                        end
+                        if !isempty(to_port)
+                            set!(subs.edges, from_id, to_id, Property("headport", check_value(to_port)))
+                            if (directed == false)
+                                set!(subs.edges, to_id, from_id, Property("tailport", check_value(to_port)))
                             end
                         end
 

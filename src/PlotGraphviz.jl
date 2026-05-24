@@ -30,7 +30,7 @@ export
     GraphvizAttributes, Property, gvNode, gvEdge, gvEdges
 
 
-include("./dots/attributes_old.jl")
+include("./dots/attributes.jl")
 include("./dots/import_dots.jl")
 include("./dots/export.jl")
 include("./dots/to_dot.jl")

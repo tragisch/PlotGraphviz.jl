@@ -175,6 +175,61 @@ has_undirected_edge(dot::AbstractString, a::AbstractString, b::AbstractString) =
     @test findfirst("subgraph cluster_0", imported_dot).start < findfirst("start -> a0", imported_dot).start
     @test occursin("<svg", render_dot_to_svg(imported_dot))
 
+    kw91_graph, kw91_attrs = read_dot_file(joinpath(@__DIR__, "data", "directed", "KW91.gv"))
+    kw91_roundtrip_dot = PlotGraphviz.string_dot(kw91_graph, kw91_attrs)
+    @test occursin("subgraph cluster_outer", kw91_roundtrip_dot)
+    @test occursin("subgraph cluster_inner", kw91_roundtrip_dot)
+    kw91_roundtrip_parsed = ParserCombinator.Parsers.DOT.parse_dot(kw91_roundtrip_dot)[1]
+    kw91_outer = [
+        stmt for stmt in kw91_roundtrip_parsed.stmts
+        if stmt isa ParserCombinator.Parsers.DOT.SubGraph && !isnothing(stmt.id) && String(stmt.id.id) == "cluster_outer"
+    ]
+    @test length(kw91_outer) == 1
+    @test any(
+        stmt -> stmt isa ParserCombinator.Parsers.DOT.SubGraph && !isnothing(stmt.id) && String(stmt.id.id) == "cluster_inner",
+        kw91_outer[1].stmts,
+    )
+    @test occursin("<svg", render_dot_to_svg(kw91_roundtrip_dot))
+
+    ldbx_graph, ldbx_attrs = read_dot_file(joinpath(@__DIR__, "data", "directed", "ldbxtried.gv"))
+    @test ldbx_graph isa SimpleWeightedDiGraph
+    ldbx_ids = Dict(node.name => node.id for node in ldbx_attrs.nodes)
+    @test val(ldbx_attrs.nodes, ldbx_ids["n1"], "shape") == "\"ellipse\""
+    @test val(ldbx_attrs.nodes, ldbx_ids["n1"], "color") == "\"maroon1\""
+    @test val(ldbx_attrs.nodes, ldbx_ids["n454"], "shape") == "\"doublecircle\""
+    @test val(ldbx_attrs.nodes, ldbx_ids["n454"], "color") == "\"green\""
+    ldbx_roundtrip_dot = PlotGraphviz.string_dot(ldbx_graph, ldbx_attrs)
+    @test occursin(r"n1 \[[^\]]*label=\"4836\"", ldbx_roundtrip_dot)
+    @test occursin(r"n1 \[[^\]]*shape=\"ellipse\"[^\]]*color=\"maroon1\"", ldbx_roundtrip_dot)
+    @test occursin("n454 [label=\"bunting", ldbx_roundtrip_dot)
+    @test occursin("shape=\"doublecircle\",color=\"green\"", ldbx_roundtrip_dot)
+    @test occursin("<svg", render_dot_to_svg(ldbx_roundtrip_dot))
+
+    record2_graph, record2_attrs = read_dot_file(joinpath(@__DIR__, "data", "directed", "record2.gv"))
+    @test record2_graph isa SimpleWeightedDiGraph
+    record2_ids = Dict(node.name => node.id for node in record2_attrs.nodes)
+    @test val(record2_attrs.nodes, record2_ids["a"], "label") == "\"<f0> foo | x | <f1> bar\""
+    @test val(record2_attrs.nodes, record2_ids["b"], "label") == "\"a | { <f0> foo | x | <f1> bar } | b\""
+    @test val(record2_attrs.edges, record2_ids["a"], record2_ids["b"], "tailport") == "\"f0\""
+    @test val(record2_attrs.edges, record2_ids["a"], record2_ids["b"], "headport") == "\"f1\""
+    record2_roundtrip_dot = PlotGraphviz.string_dot(record2_graph, record2_attrs)
+    @test occursin(r"a \[[^\]]*label=\"<f0> foo \| x \| <f1> bar\"", record2_roundtrip_dot)
+    @test occursin(r"b \[[^\]]*label=\"a \| \{ <f0> foo \| x \| <f1> bar \} \| b\"", record2_roundtrip_dot)
+    @test occursin(r"a -> b \[[^\]]*tailport=\"f0\"[^\]]*headport=\"f1\"", record2_roundtrip_dot)
+    @test occursin("<svg", render_dot_to_svg(record2_roundtrip_dot))
+
+    shells_graph, shells_attrs = read_dot_file(joinpath(@__DIR__, "data", "directed", "shells.gv"))
+    @test shells_graph isa SimpleWeightedDiGraph
+    shells_ids = Dict(node.name => node.id for node in shells_attrs.nodes)
+    @test val(shells_attrs.nodes, shells_ids["1972"], "shape") == "\"plaintext\""
+    @test val(shells_attrs.nodes, shells_ids["1972"], "fontsize") == "\"24\""
+    @test val(shells_attrs.nodes, shells_ids["1976"], "shape") == "\"plaintext\""
+    @test val(shells_attrs.nodes, shells_ids["1976"], "fontsize") == "\"24\""
+    shells_roundtrip_dot = PlotGraphviz.string_dot(shells_graph, shells_attrs)
+    @test occursin(r"1972 \[(?=[^\]]*shape=\"plaintext\")(?=[^\]]*fontsize=\"24\")[^\]]*\]", shells_roundtrip_dot)
+    @test occursin(r"1976 \[(?=[^\]]*shape=\"plaintext\")(?=[^\]]*fontsize=\"24\")[^\]]*\]", shells_roundtrip_dot)
+    @test occursin("<svg", render_dot_to_svg(shells_roundtrip_dot))
+
     biological_graph, biological_attrs = read_dot_file(joinpath(@__DIR__, "data", "directed", "biological.gv"))
     biological_roundtrip_dot = PlotGraphviz.string_dot(biological_graph, biological_attrs)
     @test occursin("Hef1a -> Gal4VP16 [arrowhead=\"none\"]", biological_roundtrip_dot)

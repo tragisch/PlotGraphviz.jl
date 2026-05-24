@@ -41,7 +41,7 @@ set!(attributes::Properties, prop::Property; override=true) = set!(attributes, p
 function set!(attributes::Properties, key::String, value; override=true)
     key_exist, idx = haskey(attributes, key)
     if key_exist & (override == true)
-        attributes[idx].value = check_value(value)
+        attributes[idx] = Property(key, check_value(value))
     else
         push!(attributes, Property(key, check_value(value)))
     end
@@ -87,6 +87,7 @@ struct gvSubGraph
     edge_options::Properties
     nodes::gvNodes
     edges::gvEdges
+    subgraphs::Vector{gvSubGraph}
 end
 
 # empty outer constructor:
@@ -98,8 +99,9 @@ function gvSubGraph(type::String)
     edge_options = Properties()
     node = gvNodes()
     edges = gvEdges()
+    subgraphs = Vector{gvSubGraph}()
 
-    return gvSubGraph(type, plot_options, graph_options, node_options, edge_options, node, edges)
+    return gvSubGraph(type, plot_options, graph_options, node_options, edge_options, node, edges, subgraphs)
 end
 
 const gvSubGraphs = Vector{gvSubGraph}
