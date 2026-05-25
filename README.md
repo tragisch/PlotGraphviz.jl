@@ -1,19 +1,25 @@
 # PlotGraphviz.jl
 
+**Supported Julia: 1.10+**
+
 - `PlotGraphviz.jl` brings **Graphviz** rendering directly into IJulia and VS Code notebooks.
 
-- The modern core is built on `GraphvizGraph` and `Graphviz_jll` (no `ShowGraphviz` render path required). For dot-file parsing it uses [`ParserCombinator.jl`](https://github.com/andrewcooke/ParserCombinator.jl/blob/master/src/dot/DOT.jl).
+- The modern core is built on `GraphvizGraph` and `Graphviz_jll`. For dot-file parsing it uses [`ParserCombinator.jl`](https://github.com/andrewcooke/ParserCombinator.jl/blob/master/src/dot/DOT.jl).
 
 - `PlotGraphviz.jl` presents a simple interface for (nearly) all features of Graphviz. 
 
-- `PlotGraphviz.jl` accepts graphs from [`SimpleWeightedGraphs.jl`](https://github.com/JuliaGraphs/SimpleWeightedGraphs.jl)
+- `PlotGraphviz.jl` accepts graphs from both [`Graphs.jl`](https://github.com/JuliaGraphs/Graphs.jl) and [`SimpleWeightedGraphs.jl`](https://github.com/JuliaGraphs/SimpleWeightedGraphs.jl).
+
+- `PlotGraphviz.jl` also provides interoperability with [`MetaGraphsNext.jl`](https://github.com/JuliaGraphs/MetaGraphsNext.jl) via adapter functions (`to_metagraph`, `from_metagraph`).
 
 ## Installation
 
 Installation is straightforward: enter Pkg mode by hitting ], and then
 
+Supported Julia versions: **Julia 1.10 and newer**.
+
 ```julia
-(@v1.7) pkg> add PlotGraphviz
+(@v1.10) pkg> add PlotGraphviz
 ```
 
 
@@ -70,7 +76,7 @@ grid = Graphs.grid([10,5])
 
 
 ```julia
-plot_graphviz(SimpleWeightedGraph(grid))
+plot_graphviz(grid)
 ```
 
 
@@ -475,13 +481,13 @@ plot_graphviz(lydag; landscape = true, scale = 7, path = L)
     
 
 
+## Current status
 
-## Comments
-
-Open issues:
-- Not all test graphs are imported correcty.
-- Performance issues have to be solved.
-- Design Patterns and Best Practices to be implemented.
-- **Tests** are missing!
+- Automated tests are in place and currently passing (including the
+    `CLI parity for test/data graphs` suite).
+- DOT parsing still has known scope limits:
+    - for files containing multiple graphs, only the first graph is currently used
+    - error handling for malformed/unsupported DOT input can be improved
+- `save_dot_as` is not implemented yet.
 
 

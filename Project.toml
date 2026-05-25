@@ -1,6 +1,6 @@
 name = "PlotGraphviz"
 uuid = "78a92bc3-407c-4e2f-aae5-75bb47a6fe36"
-version = "0.6.3"
+version = "0.7.0"
 authors = ["tragisch <uwe@roettgermann.de> and contributors"]
 
 [deps]
@@ -16,11 +16,11 @@ SimpleWeightedGraphs = "47aef6b3-ad0c-573a-a1e2-d07658019622"
 StructEquality = "6ec83bb0-ed9f-11e9-3b4c-2b04cb4e219c"
 
 [compat]
-DataStructures = "0.18"
+DataStructures = "0.18, 0.19"
 FileIO = "1.19.0"
 Graphs = "1"
 Graphviz_jll = "2"
-Images = "0.26.2"
+Images = "0.26"
 MetaGraphsNext = "0.8.0"
 ParserCombinator = "2"
 Revise = "3.14.3"
