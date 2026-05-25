@@ -1,6 +1,7 @@
 module PlotGraphviz
 
 using Graphs
+using MetaGraphsNext
 using SimpleWeightedGraphs
 using ParserCombinator
 using StructEquality
@@ -15,6 +16,10 @@ export
     # visualization, import, export:
     to_graphviz, to_dot, plot_graphviz, savefig,
     write_dot_file, read_dot_file,
+
+    # interop adapters:
+    to_weighted_graph, apply_edge_weights, read_dot_file_weighted,
+    to_metagraph, from_metagraph,
 
     # modifier:
     set!, val, rm!,
@@ -33,6 +38,8 @@ export
 include("./dots/attributes.jl")
 include("./dots/import_dots.jl")
 include("./dots/export.jl")
+include("./dots/adapters.jl")
+include("./dots/metagraphsnext_adapters.jl")
 include("./dots/to_dot.jl")
 include("./dots/utils.jl")
 include("./dots/graphviz.jl")

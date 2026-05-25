@@ -232,6 +232,86 @@ To write and store the graph use the `write_dot_file` function:
 write_dot_file(mk,"./test.dot"; attributes=attrs);
 ```
 
+## API Know-How: Interoperability Mappings
+
+`PlotGraphviz.jl` now includes helper APIs to map graphs and metadata between
+`Graphs.jl`, `SimpleWeightedGraphs.jl`, DOT attributes, and `MetaGraphsNext.jl`.
+
+### 1) Convert any `Graphs.jl` graph to a weighted graph
+
+Use `to_weighted_graph` when you start from `SimpleGraph` / `SimpleDiGraph` and
+need weighted edges for plotting or export pipelines.
+
+```julia
+using Graphs, PlotGraphviz
+
+g = SimpleDiGraph(3)
+add_edge!(g, 1, 2)
+add_edge!(g, 2, 3)
+
+wg = to_weighted_graph(g; default_weight=1.0)
+```
+
+### 2) Apply DOT edge weights to an existing graph
+
+Use `apply_edge_weights` to read edge weights from `GraphvizAttributes`.
+By default, keys are checked in this order: `"weight"`, then `"xlabel"`.
+
+```julia
+using PlotGraphviz
+
+g, attrs = read_dot_file("./test/data/undirected/Petersen.gv")
+
+# Prefer "weight", then fallback to "xlabel"
+wg = apply_edge_weights(g, attrs; weight_keys=("weight", "xlabel"), default_weight=1.0)
+```
+
+### 3) One-step weighted DOT import
+
+Use `read_dot_file_weighted` if you want weighted edges directly from DOT input.
+
+```julia
+using PlotGraphviz
+
+wg, attrs = read_dot_file_weighted("./test/data/undirected/Petersen.gv")
+```
+
+### 4) Map to `MetaGraphsNext.jl`
+
+Use `to_metagraph` to convert `(weighted_graph, attrs)` to a `MetaGraph`.
+
+- graph options (`attrs.graph_options`) -> `mg[]`
+- node attributes (`attrs.nodes`) -> `mg[label]`
+- edge attributes (`attrs.edges`) -> `mg[label1, label2]`
+
+```julia
+using PlotGraphviz, MetaGraphsNext
+
+g, attrs = read_dot_file_weighted("./test/data/directed/clust4.gv")
+mg = to_metagraph(g, attrs)
+
+# Access mapped metadata
+graph_meta = mg[]
+```
+
+### 5) Map back from `MetaGraphsNext.jl`
+
+Use `from_metagraph` to reconstruct a weighted graph plus `GraphvizAttributes`.
+
+```julia
+using PlotGraphviz, MetaGraphsNext
+
+# Assume `mg` is an existing MetaGraph
+wg2, attrs2 = from_metagraph(mg)
+
+plot_graphviz(wg2, attrs2)
+```
+
+### Practical recommendation
+
+For robust roundtrips, use `weight_key="weight"` consistently for edge weights,
+and treat `"xlabel"` primarily as a display label.
+
 ## Default Attributes:
 
 Back to our graph $g$. How to get the Graphviz attributes of this graph? Well, there are two ways:

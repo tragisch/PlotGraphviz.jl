@@ -1,5 +1,6 @@
 using PlotGraphviz
 using Graphs
+using MetaGraphsNext
 using ParserCombinator
 using SimpleWeightedGraphs
 using Test
@@ -63,6 +64,74 @@ has_undirected_edge(dot::AbstractString, a::AbstractString, b::AbstractString) =
     occursin("$a -- $b", dot) || occursin("$b -- $a", dot)
 
 @testset "PlotGraphviz.jl" begin
+    @testset "Interop adapters" begin
+        simple_u = SimpleGraph(3)
+        Graphs.add_edge!(simple_u, 1, 2)
+
+        weighted_u = to_weighted_graph(simple_u; default_weight=3.5)
+        @test weighted_u isa SimpleWeightedGraph
+        @test weights(weighted_u)[1, 2] == 3.5
+
+        simple_d = SimpleDiGraph(3)
+        Graphs.add_edge!(simple_d, 1, 2)
+
+        weighted_d = to_weighted_graph(simple_d; default_weight=2.0)
+        @test weighted_d isa SimpleWeightedDiGraph
+        @test weights(weighted_d)[1, 2] == 2.0
+
+        attrs = GraphvizAttributes(weighted_u)
+        set!(attrs.edges, 1, 2, Property("weight", "7.25"))
+        set!(attrs.edges, 1, 2, Property("xlabel", "9.5"))
+
+        weighted_from_attrs = apply_edge_weights(simple_u, attrs)
+        @test weights(weighted_from_attrs)[1, 2] == 7.25
+
+        weighted_from_attrs_x = apply_edge_weights(simple_u, attrs; weight_keys=("xlabel",), default_weight=1.0)
+        @test weights(weighted_from_attrs_x)[1, 2] == 9.5
+
+        weighted_from_attrs_default = apply_edge_weights(simple_u, attrs; weight_keys=("missing",), default_weight=4.0)
+        @test weights(weighted_from_attrs_default)[1, 2] == 4.0
+
+        petersen_weighted, petersen_attrs2 = read_dot_file_weighted(joinpath(@__DIR__, "data", "undirected", "Petersen.gv"))
+        petersen_ids2 = Dict(node.name => node.id for node in petersen_attrs2.nodes)
+        @test petersen_weighted isa SimpleWeightedGraph
+        @test weights(petersen_weighted)[petersen_ids2["0"], petersen_ids2["5"]] == 5.0
+        @test weights(petersen_weighted)[petersen_ids2["0"], petersen_ids2["1"]] == 1.0
+    end
+
+    @testset "MetaGraphsNext adapters" begin
+        g_meta = SimpleWeightedDiGraph(3)
+        SimpleWeightedGraphs.add_edge!(g_meta, 1, 2, 2.5)
+        SimpleWeightedGraphs.add_edge!(g_meta, 2, 3, 1.25)
+
+        attrs_meta = GraphvizAttributes(g_meta)
+        attrs_meta.nodes[1] = gvNode(1, "A", [Property("color", "red"), Property("shape", "box")])
+        attrs_meta.nodes[2] = gvNode(2, "B", [Property("color", "blue")])
+        attrs_meta.nodes[3] = gvNode(3, "C", [Property("style", "filled")])
+        set!(attrs_meta.edges, 1, 2, Property("weight", "2.5"))
+        set!(attrs_meta.edges, 1, 2, Property("style", "dashed"))
+        set!(attrs_meta.edges, 2, 3, Property("weight", "1.25"))
+        set!(attrs_meta.graph_options, "rankdir", "LR")
+
+        mg = to_metagraph(g_meta, attrs_meta)
+
+        @test mg isa MetaGraphsNext.MetaGraph
+        @test mg["A"]["color"] == "red"
+        @test mg["A", "B"]["style"] == "dashed"
+        @test mg[]["rankdir"] == "LR"
+        @test weights(mg)[1, 2] == 2.5
+
+        g_back, attrs_back = from_metagraph(mg)
+
+        @test g_back isa SimpleWeightedDiGraph
+        @test weights(g_back)[1, 2] == 2.5
+        @test weights(g_back)[2, 3] == 1.25
+        @test attrs_back.nodes[1].name == "A"
+        @test val(attrs_back.nodes, 1, "color") == "\"red\""
+        @test val(attrs_back.edges, 1, 2, "style") == "\"dashed\""
+        @test val(attrs_back.graph_options, "rankdir") == "\"LR\""
+    end
+
     simple = SimpleGraph(3)
     Graphs.add_edge!(simple, 1, 2)
     Graphs.add_edge!(simple, 2, 3)
