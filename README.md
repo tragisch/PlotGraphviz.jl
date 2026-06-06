@@ -6,6 +6,10 @@
 
 - The modern core is built on `GraphvizGraph` and `Graphviz_jll`. For dot-file parsing it uses [`ParserCombinator.jl`](https://github.com/andrewcooke/ParserCombinator.jl/blob/master/src/dot/DOT.jl).
 
+- The Julia-side Graphviz graph representation and DOT pretty-printer are
+  derived from [Catlab.jl](https://github.com/AlgebraicJulia/Catlab.jl)'s
+  Graphviz code and have been refactored and adapted for PlotGraphviz.jl.
+
 - `PlotGraphviz.jl` presents a simple interface for (nearly) all features of Graphviz. 
 
 - `PlotGraphviz.jl` accepts graphs from both [`Graphs.jl`](https://github.com/JuliaGraphs/Graphs.jl) and [`SimpleWeightedGraphs.jl`](https://github.com/JuliaGraphs/SimpleWeightedGraphs.jl).
