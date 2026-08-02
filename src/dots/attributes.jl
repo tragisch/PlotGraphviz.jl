@@ -40,11 +40,12 @@ set!(attributes::Properties, prop::Property; override=true) = set!(attributes, p
 
 function set!(attributes::Properties, key::String, value; override=true)
     key_exist, idx = haskey(attributes, key)
-    if key_exist & (override == true)
+    if key_exist && override
         attributes[idx] = Property(key, check_value(value))
-    else
+    elseif !key_exist
         push!(attributes, Property(key, check_value(value)))
     end
+    return attributes
 end
 
 # remove attribute of attributes
@@ -131,7 +132,7 @@ function GraphvizAttributes()
 end
 
 # derived from SimpleWeightedGraph
-function GraphvizAttributes(graph::AbstractSimpleWeightedGraph; node_label::Bool=true, edge_label::Bool=false)
+function GraphvizAttributes(graph::Graphs.AbstractGraph; node_label::Bool=true, edge_label::Bool=false)
     directed = Graphs.is_directed(graph)
     n = nv(graph)
     large_graph = 200
@@ -151,16 +152,17 @@ function GraphvizAttributes(graph::AbstractSimpleWeightedGraph; node_label::Bool
         Property("fixedsize", "true"),
         Property("shape", (node_label) ? "circle" : "point")]
     edge_options = [Property("arrowsize", "0.5"),
-        Property("arrowtype", "normal"),
+        Property("arrowhead", "normal"),
         Property("fontsize", (edge_label) ? "8.0" : "1.0")]
 
     nodes = [gvNode(i, "$i", Properties()) for i = 1:n]
 
+    edge_weights = edge_label ? Graphs.weights(graph) : nothing
     edges = gvEdges()
     for edge in Graphs.edges(graph)
         from = Graphs.src(edge)
         to = Graphs.dst(edge)
-        props = edge_label ? [Property("xlabel", graph.weights[from, to])] : Properties()
+        props = edge_label ? [Property("xlabel", edge_weights[from, to])] : Properties()
         push!(edges, gvEdge(from, to, props))
     end
 
@@ -176,7 +178,7 @@ end
 
 function mod_attr_large_network!(attrs::GraphvizAttributes)
     set!(attrs.graph_options, "fontsize", "1")
-    set!(attrs.graph_options, "concetrate", "true")
+    set!(attrs.graph_options, "concentrate", "true")
     set!(attrs.graph_options, "layout", "sfdp")
     set!(attrs.plot_options, "weights", "false")
     set!(attrs.node_options, "shape", "point")
@@ -217,7 +219,7 @@ function set!(nodes::gvNodes, id::Int, attribute::Property)
             end
         end
     else
-        push!(nodes, gvNode(id, String(id), [attribute]))
+        push!(nodes, gvNode(id, string(id), [attribute]))
     end
 end
 

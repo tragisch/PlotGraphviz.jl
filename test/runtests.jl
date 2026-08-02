@@ -92,6 +92,10 @@ has_undirected_edge(dot::AbstractString, a::AbstractString, b::AbstractString) =
         weighted_from_attrs_default = apply_edge_weights(simple_u, attrs; weight_keys=("missing",), default_weight=4.0)
         @test weights(weighted_from_attrs_default)[1, 2] == 4.0
 
+        set!(attrs.edges, 1, 2, Property("weight", 6.5))
+        weighted_from_numeric_attr = apply_edge_weights(simple_u, attrs)
+        @test weights(weighted_from_numeric_attr)[1, 2] == 6.5
+
         petersen_weighted, petersen_attrs2 = read_dot_file_weighted(joinpath(@__DIR__, "data", "undirected", "Petersen.gv"))
         petersen_ids2 = Dict(node.name => node.id for node in petersen_attrs2.nodes)
         @test petersen_weighted isa SimpleWeightedGraph
@@ -139,6 +143,41 @@ has_undirected_edge(dot::AbstractString, a::AbstractString, b::AbstractString) =
     simple_graphviz = get_GraphvizGraph_Standard(simple)
     simple_dot = sprint(pprint, simple_graphviz)
 
+    @testset "DOT API and serialization" begin
+        properties = Property[Property("color", "red")]
+        set!(properties, "color", "blue"; override=false)
+        @test length(properties) == 1
+        @test val(properties, "color") == "red"
+
+        modern = GraphvizDigraph(
+            "graph name",
+            Node("node one"; label="first \"quoted\"\nline", width=1.5),
+            Node("node\"two"),
+            PlotGraphviz.Edge("node one", "node\"two"; label=2);
+            strict=true,
+        )
+        modern_dot = to_dot(modern)
+
+        @test startswith(modern_dot, "strict digraph \"graph name\"")
+        @test occursin("\"node one\"", modern_dot)
+        @test occursin("\"node\\\"two\"", modern_dot)
+        @test occursin("label=\"first \\\"quoted\\\"\\nline\"", modern_dot)
+        @test occursin("width=\"1.5\"", modern_dot)
+        @test occursin("<svg", render_dot_to_svg(modern_dot))
+
+        @test occursin("overlap=\"scale\"", simple_dot)
+        @test occursin("arrowhead=\"normal\"", simple_dot)
+        @test !occursin("overlay=", simple_dot)
+        @test !occursin("arrowtype=", simple_dot)
+
+        simple_attrs = GraphvizAttributes(simple)
+        set!(simple_attrs.nodes, 1, Property("shape", "box"))
+        @test occursin("1 [shape=\"box\"]", to_dot(simple, simple_attrs))
+
+        @test_throws ArgumentError PlotGraphviz.run_graphviz(IOBuffer(), "graph { a -- b }"; prog="invalid")
+        @test_throws ArgumentError PlotGraphviz.run_graphviz(IOBuffer(), "graph { a -- b }"; format="")
+    end
+
     @test isdefined(PlotGraphviz, :to_graphviz)
     @test isdefined(PlotGraphviz, :to_dot)
     @test isdefined(PlotGraphviz, :savefig)
@@ -171,6 +210,12 @@ has_undirected_edge(dot::AbstractString, a::AbstractString, b::AbstractString) =
     @test occursin("1 -> 2", directed_dot)
     @test occursin("3 -> 2", directed_dot)
     @test !occursin("2 -> 1", directed_dot)
+
+    directed_attrs = GraphvizAttributes(directed)
+    directed_path_dot = to_dot(directed, directed_attrs; path=[1, 2])
+    @test occursin("1 -> 2 [color=\"red\"]", directed_path_dot)
+    @test !occursin("3 -> 2 [color=\"red\"]", directed_path_dot)
+    @test_throws ArgumentError to_dot(directed, directed_attrs; path=[1, 3])
 
     g = SimpleWeightedGraph(3)
     SimpleWeightedGraphs.add_edge!(g, 1, 2, 0.5)
@@ -326,6 +371,11 @@ has_undirected_edge(dot::AbstractString, a::AbstractString, b::AbstractString) =
     latin1_svg = render_dot_to_svg(latin1_roundtrip_dot)
     @test occursin("<svg", latin1_svg)
     @test occursin("áâãäå", latin1_svg)
+
+    xlabel_path = tempname() * ".dot"
+    write(xlabel_path, "graph { a -- b [xlabel=2.5]; }")
+    xlabel_graph, _ = read_dot_file(xlabel_path)
+    @test weights(xlabel_graph)[1, 2] == 2.5
 
     er_graph, er_attrs = read_dot_file(joinpath(@__DIR__, "data", "undirected", "ER.gv"))
     @test er_graph isa SimpleWeightedGraph

@@ -27,7 +27,7 @@ function to_graphviz(g::AbstractSimpleWeightedGraph;
     )
 end
 
-function to_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
+function to_graphviz(g::Graphs.AbstractGraph, attributes::GraphvizAttributes;
     edge_label::Bool=false,
     path=[],
     colors=zeros(Int, nv(g)),
@@ -61,7 +61,7 @@ function to_dot(g::Graphs.AbstractGraph; kw...)
     to_dot(to_graphviz(g; kw...))
 end
 
-function to_dot(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes; kw...)
+function to_dot(g::Graphs.AbstractGraph, attributes::GraphvizAttributes; kw...)
     to_dot(to_graphviz(g, attributes; kw...))
 end
 
@@ -80,7 +80,7 @@ function savefig(filename::AbstractString, x; format=nothing, prog="dot", kw...)
     return filename
 end
 
-function savefig(filename::AbstractString, g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
+function savefig(filename::AbstractString, g::Graphs.AbstractGraph, attributes::GraphvizAttributes;
     format=nothing,
     prog="dot",
     kw...,
@@ -100,7 +100,7 @@ end
 Render graph `g` in iJulia using `Graphviz` engines.
 
 #### Arguments
-- `g::AbstractSimpleWeightedGraph`: a graph representation to export 
+- `g::Graphs.AbstractGraph`: a graph representation to export
 - (optional) `edge_label::Bool`: if true all edges are labeled with their weights (default = false)
 - (optional) `path = []`: Int-Array of nodes. Nodes and their edges are drawn in red color (i.e. shortest path)
 - (optional) `colors = zeros(Int, nv(mat))`: Color nodes using Brewer Color Scheme (max 9 colors).
@@ -113,11 +113,11 @@ function plot_graphviz(g::Graphs.AbstractGraph; prog::String="dot", format::Stri
     plot_graphviz(to_graphviz(g; kw...); prog=prog, format=format)
 end
 
-function plot_graphviz(tup::Tuple{<:AbstractSimpleWeightedGraph,GraphvizAttributes}; prog::String="dot", format::String="svg", kw...)
+function plot_graphviz(tup::Tuple{<:Graphs.AbstractGraph,GraphvizAttributes}; prog::String="dot", format::String="svg", kw...)
     plot_graphviz(tup[1], tup[2]; prog=prog, format=format, kw...)
 end
 
-function plot_graphviz(g::AbstractSimpleWeightedGraph, attributes::GraphvizAttributes;
+function plot_graphviz(g::Graphs.AbstractGraph, attributes::GraphvizAttributes;
     prog::String="dot",
     format::String="svg",
     kw...,
@@ -195,45 +195,36 @@ function plot_graphviz(dot::AbstractString; prog::String="dot", format::String="
 end
 
 
-#### internal
-### copied from CAPL.
+"""
+    run_graphviz(io, graph_or_dot; prog="dot", format="svg")
 
-function __init__()
-    let cfg = joinpath(Graphviz_jll.artifact_dir, "lib", "graphviz", "config6")
-        if !isfile(cfg)
-            run(`$(Graphviz_jll.dot()) -c`)
-        end
-    end
+Render a `GraphvizGraph` or DOT string through the executable bundled by
+`Graphviz_jll`, writing the selected Graphviz output format to `io`.
+"""
+const GRAPHVIZ_PROGRAMS = ("dot", "neato", "fdp", "sfdp", "twopi", "circo")
+
+function graphviz_program(prog::AbstractString)
+    prog in GRAPHVIZ_PROGRAMS || throw(ArgumentError(
+        "Unsupported Graphviz program: $prog. Use one of $(join(GRAPHVIZ_PROGRAMS, ", ")).",
+    ))
+    return getfield(Graphviz_jll, Symbol(prog))()
 end
 
-
-""" Run a Graphviz program.
-
-Invokes Graphviz through its command-line interface. If the `Graphviz_jll`
-package is installed and loaded, it is used; otherwise, Graphviz must be
-installed on the local system.
-
-For bindings to the Graphviz C API, see the the package
-[GraphViz.jl](https://github.com/Keno/GraphViz.jl). At the time of this writing,
-GraphViz.jl is unmaintained.
-"""
-function run_graphviz(io::IO, graph::GraphvizGraph; prog::Union{String,Nothing}="dot",
-    format::String="json0")
-    @assert prog in ("dot", "neato", "fdp", "sfdp", "twopi", "circo")
-    fun = getfield(Graphviz_jll, Symbol(prog))
-    prog = fun()
-    open(`$prog -q -T$format`, io, write=true) do gv
+function run_graphviz(io::IO, graph::GraphvizGraph; prog::AbstractString="dot",
+    format::AbstractString="svg")
+    executable = graphviz_program(prog)
+    isempty(format) && throw(ArgumentError("Graphviz output format must not be empty"))
+    open(`$executable -q -T$format`, io, write=true) do gv
         dot = sprint(pprint, graph)
         write(gv, encoded_dot_bytes(dot))
     end
 end
 
-function run_graphviz(io::IO, dot::AbstractString; prog::Union{String,Nothing}="dot",
-    format::String="svg")
-    @assert prog in ("dot", "neato", "fdp", "sfdp", "twopi", "circo")
-    fun = getfield(Graphviz_jll, Symbol(prog))
-    prog = fun()
-    open(`$prog -q -T$format`, io, write=true) do gv
+function run_graphviz(io::IO, dot::AbstractString; prog::AbstractString="dot",
+    format::AbstractString="svg")
+    executable = graphviz_program(prog)
+    isempty(format) && throw(ArgumentError("Graphviz output format must not be empty"))
+    open(`$executable -q -T$format`, io, write=true) do gv
         write(gv, encoded_dot_bytes(dot))
     end
 end

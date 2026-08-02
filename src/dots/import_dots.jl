@@ -971,14 +971,16 @@ function get_AbstractSimpleWeightedGraph(attrs::GraphvizAttributes)
 
     for e in attrs.edges
 
-        weight = val(attrs.edges, e.from, e.to, "xlabel")
-        if !(isempty(weight))
-            adj[e.from, e.to] = parse(Float64, weight)
-            (directed == false) ? adj[e.to, e.from] = parse(Float64, weight) : nothing
+        raw_weight = val(e.attributes, "xlabel")
+        weight = if isempty(raw_weight)
+            1.0
+        elseif raw_weight isa Real
+            Float64(raw_weight)
         else
-            adj[e.from, e.to] = 1
-            (directed == false) ? adj[e.to, e.from] = 1 : nothing
+            something(tryparse(Float64, strip(string(raw_weight), '"')), 1.0)
         end
+        adj[e.from, e.to] = weight
+        (directed == false) && (adj[e.to, e.from] = weight)
     end
 
     if directed
@@ -1011,4 +1013,3 @@ function insert_at!(str::String, insert::String, at::Int)
 
     return new_string
 end
-

@@ -15,19 +15,27 @@ function to_weighted_graph(g::Graphs.AbstractGraph; default_weight=1.0)
     return wg
 end
 
-function _read_edge_weight(attrs::GraphvizAttributes, from::Int, to::Int, weight_keys::Tuple, default_weight::Real)
+function _edge_attribute_index(edges::gvEdges)
+    index = Dict{Tuple{Int,Int},Dict{String,Any}}()
+    for edge in edges
+        values = get!(() -> Dict{String,Any}(), index, (edge.from, edge.to))
+        for property in edge.attributes
+            haskey(values, property.key) || (values[property.key] = property.value)
+        end
+    end
+    return index
+end
+
+function _read_edge_weight(edge_attributes::AbstractDict, weight_keys::Tuple, default_weight::Real)
     for key in weight_keys
-        raw = val(attrs.edges, from, to, key)
-        if isempty(raw)
-            continue
+        haskey(edge_attributes, key) || continue
+        raw = edge_attributes[key]
+
+        if raw isa Real
+            return float(raw)
         end
 
-        parsed = tryparse(Float64, raw)
-        if !isnothing(parsed)
-            return parsed
-        end
-
-        unquoted = strip(raw, '"')
+        unquoted = strip(string(raw), '"')
         parsed = tryparse(Float64, unquoted)
         if !isnothing(parsed)
             return parsed
@@ -49,11 +57,14 @@ function apply_edge_weights(g::Graphs.AbstractGraph, attrs::GraphvizAttributes;
 
     T = Graphs.is_directed(g) ? SimpleWeightedDiGraph : SimpleWeightedGraph
     weighted = T(Graphs.nv(g))
+    edge_attributes = _edge_attribute_index(attrs.edges)
+    keys = Tuple(weight_keys)
 
     for e in Graphs.edges(g)
         from = Graphs.src(e)
         to = Graphs.dst(e)
-        w = _read_edge_weight(attrs, from, to, Tuple(weight_keys), default_weight)
+        attributes = get(edge_attributes, (from, to), nothing)
+        w = isnothing(attributes) ? float(default_weight) : _read_edge_weight(attributes, keys, default_weight)
         SimpleWeightedGraphs.add_edge!(weighted, from, to, w)
     end
 

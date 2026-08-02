@@ -20,20 +20,26 @@ function color_nodes!(attrs::GraphvizAttributes, colors)
 end
 
 
-function color_path!(attrs::GraphvizAttributes, path, g::AbstractSimpleWeightedGraph; color="red")
+function color_path!(attrs::GraphvizAttributes, path, g::Graphs.AbstractGraph; color="red")
+    for node in path
+        1 <= node <= nv(g) || throw(ArgumentError("Path contains invalid vertex $node"))
+        set!(attrs.nodes, node, Property("style", "filled"))
+        set!(attrs.nodes, node, Property("fillcolor", color))
+    end
 
-    for node = 1:nv(g)
-        childs = Graphs.inneighbors(g, node)
+    edges = Dict{Tuple{Int,Int},gvEdge}()
+    for edge in attrs.edges
+        key = (edge.from, edge.to)
+        haskey(edges, key) || (edges[key] = edge)
+    end
 
-        if !Base.isnothing(findfirst(isequal(node), path))
-            set!(attrs.nodes, node, Property("style", "filled"))
-            set!(attrs.nodes, node, Property("fillcolor", color))
-            for kid in childs
-                if !Base.isnothing(findfirst(isequal(kid), path)) && (kid != path[1])
-                    set!(attrs.edges, node, kid, Property("color", color))
-                end
-            end
+    for (from, to) in zip(path, Iterators.drop(path, 1))
+        edge = get(edges, (from, to), nothing)
+        if isnothing(edge) && !Graphs.is_directed(g)
+            edge = get(edges, (to, from), nothing)
         end
+        isnothing(edge) && throw(ArgumentError("Path contains non-edge $from -> $to"))
+        set!(edge.attributes, "color", color)
     end
 end
 

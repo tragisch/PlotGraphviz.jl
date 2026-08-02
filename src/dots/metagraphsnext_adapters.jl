@@ -81,14 +81,23 @@ function to_metagraph(g::AbstractSimpleWeightedGraph, attrs::GraphvizAttributes;
         push!(vertex_descriptions, string(node.name) => data)
     end
 
+    node_names = Dict(node.id => node.name for node in attrs.nodes)
+    edge_properties = Dict{Tuple{Int,Int},Properties}()
+    for edge in attrs.edges
+        key = (edge.from, edge.to)
+        haskey(edge_properties, key) || (edge_properties[key] = edge.attributes)
+    end
+
     edge_descriptions = Pair{Tuple{String,String},Dict{String,Any}}[]
     for e in Graphs.edges(g)
         from = Graphs.src(e)
         to = Graphs.dst(e)
-        from_label = string(legacy_node_name(attrs, from))
-        to_label = string(legacy_node_name(attrs, to))
+        from_label = get(node_names, from, string(from))
+        to_label = get(node_names, to, string(to))
 
-        data = _meta_dict_from_properties(legacy_edge_attrs(attrs, from, to))
+        key = (from, to)
+        properties = haskey(edge_properties, key) ? edge_properties[key] : Properties()
+        data = _meta_dict_from_properties(properties)
         if !haskey(data, weight_key)
             data[weight_key] = float(Graphs.weights(g)[from, to])
         end
